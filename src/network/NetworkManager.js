@@ -2,7 +2,7 @@
  * NetworkManager - handles WebSocket connection to multiplayer game server
  *
  * Features:
- * - Auto-connect on initialization
+ * - Auto-connect on initialization (or deferred if playerName provided)
  * - Auto-reconnect with exponential backoff
  * - Throttled position updates (10Hz)
  * - Persistent player ID (localStorage)
@@ -11,12 +11,18 @@
 export class NetworkManager {
   /**
    * @param {string} url - WebSocket server URL (ws:// or wss://)
+   * @param {string} [playerName] - Optional player name (used in join message, persisted to localStorage)
    */
-  constructor(url) {
+  constructor(url, playerName = null) {
     this.url = url;
     this.ws = null;
     this.playerId = this.getOrCreatePlayerId();
-    this.playerName = this.getOrCreatePlayerName();
+    // Use provided name or fall back to stored/generated name
+    this.playerName = playerName || this.getOrCreatePlayerName();
+    // If a name was provided, save it
+    if (playerName) {
+      this.setPlayerName(playerName);
+    }
     this.connected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;

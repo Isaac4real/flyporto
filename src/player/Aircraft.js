@@ -3,6 +3,16 @@ import { CONFIG } from '../config.js';
 
 const AIRCRAFT_SCALE = CONFIG.aircraft?.scale || 2.0;
 
+// Plane type color palette
+const PLANE_COLORS = {
+  red: { body: 0xcccccc, accent: 0xef4444 },
+  blue: { body: 0xcccccc, accent: 0x3b82f6 },
+  green: { body: 0xcccccc, accent: 0x22c55e },
+  yellow: { body: 0xcccccc, accent: 0xeab308 },
+  purple: { body: 0xcccccc, accent: 0xa855f7 },
+  orange: { body: 0xcccccc, accent: 0xf97316 }
+};
+
 /**
  * Aircraft - manages aircraft state and mesh
  */
@@ -10,8 +20,12 @@ export class Aircraft {
   /**
    * Create an aircraft at the specified position
    * @param {THREE.Vector3} initialPosition - Starting position in world coordinates
+   * @param {string} planeType - Type/color of plane ('red', 'blue', 'green', etc.)
    */
-  constructor(initialPosition) {
+  constructor(initialPosition, planeType = 'red') {
+    // Store plane type
+    this.planeType = planeType;
+
     // State
     this.position = initialPosition.clone();
     this.rotation = new THREE.Euler(0, 0, 0, 'XYZ');
@@ -33,8 +47,8 @@ export class Aircraft {
     // Computed forward vector (updated by updateMatrices)
     this.forward = new THREE.Vector3(0, 0, -1);
 
-    // Create visual mesh
-    this.mesh = this.createMesh();
+    // Create visual mesh with selected plane type
+    this.mesh = this.createMesh(planeType);
 
     // Set initial position
     this.mesh.position.copy(this.position);
@@ -42,18 +56,22 @@ export class Aircraft {
 
   /**
    * Create an airplane-shaped mesh using Three.js primitives
+   * @param {string} planeType - The plane type for coloring
    * @returns {THREE.Group}
    */
-  createMesh() {
+  createMesh(planeType = 'red') {
     const group = new THREE.Group();
+
+    // Get colors for this plane type (fallback to red)
+    const colors = PLANE_COLORS[planeType] || PLANE_COLORS.red;
 
     // Materials
     const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: 0xcccccc,  // Light gray fuselage
+      color: colors.body,
       roughness: 0.4
     });
     const accentMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff4444,  // Red accents
+      color: colors.accent,
       roughness: 0.4
     });
 
@@ -81,6 +99,21 @@ export class Aircraft {
     );
     wings.position.z = 1;
     group.add(wings);
+
+    // Wing tips with accent color
+    const leftWingTip = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 0.3, 4),
+      accentMaterial
+    );
+    leftWingTip.position.set(-11, 0, 1);
+    group.add(leftWingTip);
+
+    const rightWingTip = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 0.3, 4),
+      accentMaterial
+    );
+    rightWingTip.position.set(11, 0, 1);
+    group.add(rightWingTip);
 
     // Tail fin (vertical stabilizer)
     const tailFin = new THREE.Mesh(
@@ -155,3 +188,6 @@ export class Aircraft {
     this.mesh.rotation.copy(this.rotation);
   }
 }
+
+// Export PLANE_COLORS for use by RemoteAircraft
+export { PLANE_COLORS };
