@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import { PositionBuffer } from './Interpolation.js';
 
 /**
  * RemoteAircraft - visual representation of another player's aircraft
- * No physics - just mesh that gets updated from network with interpolation
+ * No physics - just mesh that gets updated from network with buffered interpolation
  */
 export class RemoteAircraft {
   /**
@@ -18,9 +19,8 @@ export class RemoteAircraft {
     this.rotation = new THREE.Euler(0, 0, 0, 'XYZ');
     this.velocity = new THREE.Vector3();
 
-    // Target state (from network updates)
-    this.targetPosition = new THREE.Vector3();
-    this.targetRotation = new THREE.Euler(0, 0, 0, 'XYZ');
+    // Buffered interpolation for smooth movement
+    this.positionBuffer = new PositionBuffer(4);  // 4 samples
     this.lastUpdateTime = 0;
 
     // Create visual mesh
@@ -125,34 +125,36 @@ export class RemoteAircraft {
   }
 
   /**
-   * Update target state from network data
-   * @param {Object} data - Network state { position, rotation, velocity }
+   * Update state from network data - pushes to interpolation buffer
+   * @param {Object} data - Network state { position, rotation, velocity, timestamp }
    */
   setNetworkState(data) {
-    this.targetPosition.set(data.position.x, data.position.y, data.position.z);
-    this.targetRotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
-    if (data.velocity) {
-      this.velocity.set(data.velocity.x, data.velocity.y, data.velocity.z);
-    }
+    // Push to buffer for smooth interpolation
+    this.positionBuffer.push({
+      position: data.position,
+      rotation: data.rotation,
+      velocity: data.velocity || { x: 0, y: 0, z: 0 },
+      timestamp: data.lastUpdate || Date.now()
+    });
     this.lastUpdateTime = Date.now();
   }
 
   /**
-   * Update mesh position with smooth interpolation toward target
+   * Update mesh position using buffered interpolation
+   * Renders slightly in the past (100ms) for smoothness
    * @param {number} deltaTime - Time since last frame in seconds
    */
   update(deltaTime) {
-    // Interpolation factor for smooth catch-up
-    // Math.pow(0.001, deltaTime) gives exponential decay
-    const lerpFactor = 1 - Math.pow(0.001, deltaTime);
+    // Get interpolated state from buffer (100ms render delay)
+    const state = this.positionBuffer.getInterpolatedState(100);
 
-    // Lerp position toward target
-    this.position.lerp(this.targetPosition, lerpFactor);
-
-    // Lerp rotation (component-wise for Euler angles)
-    this.rotation.x += (this.targetRotation.x - this.rotation.x) * lerpFactor;
-    this.rotation.y += (this.targetRotation.y - this.rotation.y) * lerpFactor;
-    this.rotation.z += (this.targetRotation.z - this.rotation.z) * lerpFactor;
+    if (state) {
+      this.position.set(state.position.x, state.position.y, state.position.z);
+      this.rotation.set(state.rotation.x, state.rotation.y, state.rotation.z);
+      if (state.velocity) {
+        this.velocity.set(state.velocity.x, state.velocity.y, state.velocity.z);
+      }
+    }
 
     // Sync mesh with interpolated state
     this.mesh.position.copy(this.position);
@@ -167,7 +169,7 @@ export class RemoteAircraft {
    * @returns {boolean}
    */
   isStale(timeout = 5000) {
-    return Date.now() - this.lastUpdateTime > timeout;
+    return !this.positionBuffer.hasRecentData(timeout);
   }
 
   /**

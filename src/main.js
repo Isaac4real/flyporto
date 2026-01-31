@@ -84,11 +84,21 @@ networkManager.onPlayersUpdate = (players, count) => {
 
 networkManager.onPlayerJoined = (id, name) => {
   console.log(`${name} joined the game`);
+  hud.showNotification(`${name} joined`);
   // Player will be added on next updatePlayers call
 };
 
 networkManager.onPlayerLeft = (id) => {
+  // Get player name before removing
+  const player = playerSync.getPlayer(id);
+  if (player) {
+    hud.showNotification(`${player.playerName} left`);
+  }
   playerSync.removePlayer(id);
+};
+
+networkManager.onPingUpdate = (ping) => {
+  hud.updatePing(ping);
 };
 
 // Create game loop

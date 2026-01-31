@@ -27,13 +27,17 @@ export class NetworkManager {
     this.onPlayerJoined = null;
     this.onPlayerLeft = null;
     this.onConnectionChange = null;
+    this.onPingUpdate = null;
 
     // Position send throttling (10Hz = 100ms intervals)
     this.lastSendTime = 0;
     this.sendInterval = 100;
 
-    // Keepalive ping interval
+    // Ping measurement
+    this.pingSentTime = 0;
+    this.lastPing = 0;
     this.pingInterval = null;
+    this.pingMeasureInterval = null;
 
     // Handle visibility change (reconnect when tab becomes visible)
     document.addEventListener('visibilitychange', () => {
@@ -152,7 +156,11 @@ export class NetworkManager {
         break;
 
       case 'pong':
-        // Keepalive response, ignore
+        // Calculate round-trip time
+        if (this.pingSentTime > 0) {
+          this.lastPing = Date.now() - this.pingSentTime;
+          this.onPingUpdate?.(this.lastPing);
+        }
         break;
 
       default:
@@ -228,13 +236,23 @@ export class NetworkManager {
   }
 
   /**
-   * Start keepalive ping interval
+   * Start keepalive and ping measurement intervals
    */
   startPingInterval() {
     this.stopPingInterval();
+
+    // Keepalive ping every 30 seconds
     this.pingInterval = setInterval(() => {
-      this.send({ type: 'ping' });
+      this.measurePing();
     }, 30000);
+
+    // Measure ping every 5 seconds for HUD display
+    this.pingMeasureInterval = setInterval(() => {
+      this.measurePing();
+    }, 5000);
+
+    // Initial ping measurement
+    this.measurePing();
   }
 
   /**
@@ -245,6 +263,27 @@ export class NetworkManager {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
+    if (this.pingMeasureInterval) {
+      clearInterval(this.pingMeasureInterval);
+      this.pingMeasureInterval = null;
+    }
+  }
+
+  /**
+   * Send a ping to measure latency
+   */
+  measurePing() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.pingSentTime = Date.now();
+      this.send({ type: 'ping' });
+    }
+  }
+
+  /**
+   * Get the last measured ping in milliseconds
+   */
+  getPing() {
+    return this.lastPing;
   }
 
   /**
