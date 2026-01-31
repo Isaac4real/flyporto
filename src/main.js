@@ -11,6 +11,7 @@ import { KeyboardInput } from './input/KeyboardInput.js';
 import { InputHandler } from './input/InputHandler.js';
 import { TouchInput } from './input/TouchInput.js';
 import { CameraController } from './player/CameraController.js';
+import { NetworkManager } from './network/NetworkManager.js';
 
 // Initialize scene components
 const scene = createScene();
@@ -63,6 +64,28 @@ createAttribution();
 // Create HUD
 const hud = new HUD(container);
 
+// Initialize network manager for multiplayer
+const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
+const networkManager = new NetworkManager(wsUrl);
+
+// Wire up network callbacks
+networkManager.onConnectionChange = (connected) => {
+  hud.updateConnectionStatus(connected, 0);
+};
+
+networkManager.onPlayersUpdate = (players, count) => {
+  hud.updateConnectionStatus(true, count);
+  // Note: PlayerSync (Stage 9) will handle rendering other players
+};
+
+networkManager.onPlayerJoined = (id, name) => {
+  console.log(`${name} joined the game`);
+};
+
+networkManager.onPlayerLeft = (id) => {
+  console.log(`Player ${id} left the game`);
+};
+
 // Create game loop
 const gameLoop = new GameLoop();
 
@@ -80,6 +103,9 @@ function update(deltaTime) {
 
   // 4. Update HUD with current speed and altitude
   hud.update(aircraft.getSpeed(), aircraft.getAltitude());
+
+  // 5. Send position to multiplayer server (throttled to 10Hz internally)
+  networkManager.sendPosition(aircraft);
 
   // CRITICAL ORDER - camera matrix MUST update BEFORE tiles
   camera.updateMatrixWorld();
