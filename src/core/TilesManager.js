@@ -47,19 +47,34 @@ export function createTilesRenderer(camera, renderer) {
     })
   );
 
-  // Performance settings from config
-  tilesRenderer.errorTarget = CONFIG.tiles.errorTarget;
-  tilesRenderer.errorThreshold = CONFIG.tiles.errorThreshold;
-  tilesRenderer.downloadQueue.maxJobs = CONFIG.tiles.maxDownloadJobs;
+  // ====== OPTIMIZED SETTINGS (Stage 16) ======
+
+  // Quality settings
+  tilesRenderer.errorTarget = CONFIG.tiles.errorTarget;        // Lower = higher quality faster
+  tilesRenderer.errorThreshold = CONFIG.tiles.errorThreshold;  // Infinity = never hide tiles
+  tilesRenderer.maxDepth = Infinity;                           // Load full depth
+
+  // Loading performance
+  tilesRenderer.downloadQueue.maxJobs = CONFIG.tiles.maxDownloadJobs;  // More parallel downloads
   tilesRenderer.parseQueue.maxJobs = CONFIG.tiles.maxParseJobs;
 
-  // Memory management
+  // Memory management - bigger cache = fewer reloads
   tilesRenderer.lruCache.minBytesSize = CONFIG.tiles.cacheMinBytes;
   tilesRenderer.lruCache.maxBytesSize = CONFIG.tiles.cacheMaxBytes;
+
+  // Keep tiles loaded for raycasting/collision
+  tilesRenderer.displayActiveTiles = true;
 
   // Camera setup for tile streaming
   tilesRenderer.setCamera(camera);
   tilesRenderer.setResolutionFromRenderer(camera, renderer);
+
+  // Hide tiles until root is loaded (prevents showing holes)
+  tilesRenderer.group.visible = false;
+  tilesRenderer.addEventListener('load-tile-set', () => {
+    console.log('[Tiles] Root tileset loaded, showing tiles');
+    tilesRenderer.group.visible = true;
+  });
 
   return tilesRenderer;
 }

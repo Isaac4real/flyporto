@@ -173,13 +173,12 @@ const CAMERA = {
 
 ## What NOT to Build (for now)
 
-Focus on multiplayer flight that makes people say "holy shit."
+Focus on multiplayer combat flight that makes people say "holy shit."
 
 - ❌ Multiple aircraft types
-- ❌ Combat / weapons
+- ❌ Health/death system (just scoring)
 - ❌ Missions / objectives
 - ❌ User accounts / persistence
-- ❌ Sound effects (unless trivial)
 - ❌ Weather / fog effects
 - ❌ VR support
 - ❌ Chat system (future)
@@ -196,24 +195,33 @@ See `docs/stages/` for detailed implementation plans:
 5. **Stage 5: HUD & Polish** - Touch controls + HUD + mobile ✅
 6. **Stage 6: Deployment** - Production build + Vercel ✅
 
-### Multiplayer (Current)
-7. **Stage 7: Multiplayer Server** - WebSocket server on Fly.io
-   - Node.js + ws library
-   - Receives positions, broadcasts at 10Hz
-   - Rate limiting, player timeout (10s)
-8. **Stage 8: Multiplayer Client** - NetworkManager
-   - WebSocket connection with auto-reconnect
-   - Send position at 10Hz
-   - Player ID persistence (localStorage)
-9. **Stage 9: Remote Players** - PlayerSync
-   - Render other players' aircraft (blue color)
-   - Create/destroy on join/leave
-   - Basic interpolation
-10. **Stage 10: Multiplayer Polish** - Smooth experience
-    - Buffered interpolation
-    - Player name labels
-    - Join/leave notifications
-    - Ping display
+### Multiplayer (Complete)
+7. **Stage 7: Multiplayer Server** - WebSocket server on Fly.io ✅
+8. **Stage 8: Multiplayer Client** - NetworkManager ✅
+9. **Stage 9: Remote Players** - PlayerSync ✅
+10. **Stage 10: Multiplayer Polish** - Interpolation + notifications ✅
+
+### Combat (Current)
+11. **Stage 11: Aircraft Scale** - 2x larger aircraft + hitbox infrastructure
+    - Scale aircraft meshes by 2x
+    - Add bounding sphere hitboxes
+    - Hitbox meshes for raycasting
+12. **Stage 12: Shooting Mechanics** - Client-side shooting + effects
+    - Fire with Spacebar/F key (5 shots/sec)
+    - Raycasting hit detection
+    - Tracer lines, muzzle flash, hit markers
+13. **Stage 13: Combat Server** - Score tracking + validation
+    - Handle shoot/hit messages
+    - Rate limit hits (10/sec max)
+    - Broadcast scores to all clients
+14. **Stage 14: Leaderboard** - Score display + rankings
+    - Top 5 leaderboard in HUD
+    - Own score prominently displayed
+    - "+1" popup on hits
+15. **Stage 15: Combat Polish** - Tuning + sound
+    - Config-driven combat parameters
+    - Synthesized sound effects
+    - Crosshair + visual polish
 
 ## Multiplayer Architecture
 
@@ -239,30 +247,64 @@ Browser Clients          WebSocket Server (Fly.io)
 ## Network Message Types
 
 ```javascript
-// Client → Server
+// Client → Server: Movement
 { type: 'join', id: 'uuid', name: 'Pilot-1234' }
 { type: 'position', id: 'uuid', position: {x,y,z}, rotation: {x,y,z}, velocity: {x,y,z} }
 
-// Server → Client
-{ type: 'players', players: { id: {...}, id: {...} }, count: 5 }
+// Client → Server: Combat
+{ type: 'shoot', position: {x,y,z}, direction: {x,y,z} }
+{ type: 'hit', targetId: 'player-uuid' }
+
+// Server → Client: Movement
+{ type: 'players', players: {...}, scores: {...}, count: 5 }
 { type: 'player_joined', id: 'uuid', name: 'Pilot-1234' }
 { type: 'player_left', id: 'uuid' }
+
+// Server → Client: Combat
+{ type: 'player_shoot', shooterId: 'uuid', position: {...}, direction: {...} }
+{ type: 'hit_confirmed', shooterId: 'uuid', targetId: 'uuid', shooterScore: 5 }
 ```
 
-## New Files for Multiplayer
+## Combat Architecture
+
+```
+Client (Shooter)              Server                    Client (Target)
+────────────────              ──────                    ───────────────
+1. Fire (raycast)
+2. Hit detected → ─── hit ──► 3. Validate hit
+                              4. Update score
+                              5. Broadcast ─── hit_confirmed ──► 6. Flash red
+                    ◄───────────────────────────────────────────
+                              6. Show "+1"
+```
+
+**Key patterns:**
+- Client-side hit detection (raycasting)
+- Server validates and tracks scores
+- Hitscan (instant), not projectile
+- 5 shots/second fire rate
+- Bounding sphere hitboxes (30m radius)
+
+## New Files for Multiplayer & Combat
 
 ```
 server/                    # Separate Node.js project
 ├── package.json
 ├── index.js
-├── GameServer.js
+├── GameServer.js          # Handles movement + combat
 └── fly.toml              # Fly.io deployment config
 
 src/network/               # Client networking
 ├── NetworkManager.js     # WebSocket connection
 ├── PlayerSync.js         # Remote player management
-├── RemoteAircraft.js     # Remote player aircraft
+├── RemoteAircraft.js     # Remote player aircraft + hitbox
 └── Interpolation.js      # Position buffering
+
+src/combat/                # Combat system
+├── CombatManager.js      # Shooting, hit detection, scores
+├── BulletEffects.js      # Tracers, muzzle flash, hit markers
+├── Leaderboard.js        # Top 5 display
+└── SoundManager.js       # Synthesized sound effects
 ```
 
 ## Environment Variables

@@ -21,8 +21,9 @@ const KEY_MAPPINGS = {
   'ControlLeft': 'throttleDown',
   'ControlRight': 'throttleDown',
 
-  // Special
-  'Space': 'autoLevel'
+  // Combat
+  'Space': 'fire',
+  'KeyF': 'fire'
 };
 
 export class KeyboardInput {
@@ -61,6 +62,15 @@ export class KeyboardInput {
       }
     }
     return false;
+  }
+
+  /**
+   * Check if a specific key code is currently pressed
+   * @param {string} code - Key code (e.g., 'Space', 'KeyF')
+   * @returns {boolean}
+   */
+  isKeyDown(code) {
+    return this.pressedKeys.has(code);
   }
 
   /**

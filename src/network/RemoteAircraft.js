@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { PositionBuffer } from './Interpolation.js';
+import { CONFIG } from '../config.js';
+
+const AIRCRAFT_SCALE = CONFIG.aircraft?.scale || 2.0;
 
 /**
  * RemoteAircraft - visual representation of another player's aircraft
@@ -26,9 +29,12 @@ export class RemoteAircraft {
     // Create visual mesh
     this.mesh = this.createMesh();
 
-    // Create floating name label
+    // Create floating name label (position adjusted for scale)
     this.label = this.createLabel(playerName);
     this.mesh.add(this.label);
+
+    // Create hitbox mesh for raycasting (added to scene by PlayerSync)
+    this.hitboxMesh = this.createHitboxMesh();
   }
 
   /**
@@ -89,7 +95,49 @@ export class RemoteAircraft {
     hStab.position.set(0, 0, 6.5);
     group.add(hStab);
 
+    // Scale up the entire aircraft
+    group.scale.setScalar(AIRCRAFT_SCALE);
+
     return group;
+  }
+
+  /**
+   * Get hitbox radius for collision detection
+   * @returns {number} Hitbox radius in meters
+   */
+  getHitboxRadius() {
+    const baseRadius = CONFIG.aircraft?.hitboxRadius || 15;
+    return baseRadius;
+  }
+
+  /**
+   * Get bounding sphere for hit detection
+   * @returns {THREE.Sphere}
+   */
+  getHitbox() {
+    return new THREE.Sphere(this.position.clone(), this.getHitboxRadius());
+  }
+
+  /**
+   * Create invisible hitbox mesh for raycasting
+   * The mesh is added to scene separately from aircraft mesh
+   * @returns {THREE.Mesh}
+   */
+  createHitboxMesh() {
+    const geometry = new THREE.SphereGeometry(this.getHitboxRadius(), 8, 6);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xff0000,
+      transparent: true,
+      opacity: CONFIG.debug?.showHitboxes ? 0.3 : 0.0,
+      wireframe: true,
+      depthWrite: false
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.userData.playerId = this.playerId;
+    mesh.userData.isHitbox = true;
+
+    return mesh;
   }
 
   /**
@@ -119,7 +167,8 @@ export class RemoteAircraft {
     const material = new THREE.SpriteMaterial({ map: texture });
     const sprite = new THREE.Sprite(material);
     sprite.scale.set(20, 5, 1);
-    sprite.position.set(0, 8, 0);  // Float above aircraft
+    // Position above aircraft - divide by scale since label is child of scaled group
+    sprite.position.set(0, 8 / AIRCRAFT_SCALE, 0);
 
     return sprite;
   }
@@ -160,6 +209,11 @@ export class RemoteAircraft {
     this.mesh.position.copy(this.position);
     this.mesh.rotation.copy(this.rotation);
 
+    // Sync hitbox mesh position (hitbox doesn't rotate, stays as sphere)
+    if (this.hitboxMesh) {
+      this.hitboxMesh.position.copy(this.position);
+    }
+
     // Note: Sprite label automatically faces camera
   }
 
@@ -176,6 +230,7 @@ export class RemoteAircraft {
    * Clean up Three.js resources
    */
   dispose() {
+    // Dispose aircraft mesh and children
     this.mesh.traverse((child) => {
       if (child.geometry) {
         child.geometry.dispose();
@@ -187,5 +242,11 @@ export class RemoteAircraft {
         child.material.dispose();
       }
     });
+
+    // Dispose hitbox mesh
+    if (this.hitboxMesh) {
+      this.hitboxMesh.geometry.dispose();
+      this.hitboxMesh.material.dispose();
+    }
   }
 }

@@ -12,13 +12,29 @@ export class HUD {
     this.element.innerHTML = `
       <div id="hud-speed">0 kts</div>
       <div id="hud-altitude">0m</div>
-      <div id="hud-hints">WASD to fly | Space to level out</div>
+      <div id="hud-hints">WASD to fly | Space/F to fire</div>
     `;
     container.appendChild(this.element);
 
     this.speedEl = document.getElementById('hud-speed');
     this.altitudeEl = document.getElementById('hud-altitude');
     this.hintsEl = document.getElementById('hud-hints');
+
+    // Score display (below altitude)
+    this.scoreDisplay = document.createElement('div');
+    this.scoreDisplay.id = 'hud-score';
+    this.scoreDisplay.style.cssText = `
+      position: absolute;
+      top: 70px;
+      left: 10px;
+      color: #ffff00;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    `;
+    this.scoreDisplay.textContent = 'Score: 0';
+    container.appendChild(this.scoreDisplay);
 
     // Create connection status element (top-right corner)
     this.connectionStatus = document.createElement('div');
@@ -51,10 +67,128 @@ export class HUD {
     `;
     container.appendChild(this.pingDisplay);
 
+    // Crosshair
+    this.createCrosshair();
+
+    // Sound toggle
+    this.createSoundToggle();
+
+    // Tile loading indicator
+    this.createLoadingIndicator();
+
     // Fade out control hints after 10 seconds
     setTimeout(() => {
       this.hintsEl.classList.add('hidden');
     }, 10000);
+  }
+
+  /**
+   * Create crosshair that follows aircraft aim direction
+   */
+  createCrosshair() {
+    this.crosshair = document.createElement('div');
+    this.crosshair.id = 'crosshair';
+    this.crosshair.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      pointer-events: none;
+      z-index: 100;
+    `;
+
+    // Simple crosshair using SVG
+    this.crosshair.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="2" fill="white" stroke="black" stroke-width="0.5"/>
+        <line x1="12" y1="2" x2="12" y2="8" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="12" y1="16" x2="12" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="2" y1="12" x2="8" y2="12" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="16" y1="12" x2="22" y2="12" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    `;
+
+    this.container.appendChild(this.crosshair);
+
+    // Reusable vector for aim point calculation
+    this._aimPoint = null;
+  }
+
+  /**
+   * Update crosshair position based on aircraft aim direction
+   * Projects where the aircraft is pointing onto the screen
+   * @param {THREE.Camera} camera - The game camera
+   * @param {Aircraft} aircraft - The player's aircraft
+   * @param {THREE} THREE - Three.js library reference
+   */
+  updateCrosshair(camera, aircraft, THREE) {
+    if (!this._aimPoint) {
+      this._aimPoint = new THREE.Vector3();
+    }
+
+    // Calculate aim point: aircraft position + forward direction * distance
+    const aimDistance = 500; // Project aim point 500m ahead
+    const forward = aircraft.getForwardVector();
+    this._aimPoint.copy(aircraft.position)
+      .add(forward.multiplyScalar(aimDistance));
+
+    // Project to screen coordinates
+    this._aimPoint.project(camera);
+
+    // Convert from normalized device coordinates (-1 to 1) to screen pixels
+    const screenX = (this._aimPoint.x * 0.5 + 0.5) * window.innerWidth;
+    const screenY = (-this._aimPoint.y * 0.5 + 0.5) * window.innerHeight;
+
+    // Check if aim point is in front of camera (z < 1 in NDC)
+    if (this._aimPoint.z < 1) {
+      // Clamp to screen bounds with some padding
+      const padding = 50;
+      const clampedX = Math.max(padding, Math.min(window.innerWidth - padding, screenX));
+      const clampedY = Math.max(padding, Math.min(window.innerHeight - padding, screenY));
+
+      this.crosshair.style.left = `${clampedX}px`;
+      this.crosshair.style.top = `${clampedY}px`;
+      this.crosshair.style.opacity = '1';
+    } else {
+      // Aim point is behind camera, hide or center crosshair
+      this.crosshair.style.left = '50%';
+      this.crosshair.style.top = '50%';
+      this.crosshair.style.opacity = '0.3';
+    }
+  }
+
+  /**
+   * Create sound toggle button
+   */
+  createSoundToggle() {
+    this.soundToggle = document.createElement('div');
+    this.soundToggle.id = 'sound-toggle';
+    this.soundToggle.style.cssText = `
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      color: white;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 5px 10px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 4px;
+      user-select: none;
+    `;
+    this.soundToggle.textContent = 'Sound: ON';
+    this.soundToggle.onclick = () => this.onSoundToggle?.();
+    this.container.appendChild(this.soundToggle);
+  }
+
+  /**
+   * Update sound toggle display
+   * @param {boolean} enabled - Whether sound is enabled
+   */
+  updateSoundToggle(enabled) {
+    this.soundToggle.textContent = enabled ? 'Sound: ON' : 'Sound: OFF';
   }
 
   /**
@@ -70,6 +204,14 @@ export class HUD {
     // Altitude: meters (rounded)
     const alt = Math.round(altitude);
     this.altitudeEl.textContent = `${alt}m`;
+  }
+
+  /**
+   * Update score display
+   * @param {number} score - Current player score
+   */
+  updateScore(score) {
+    this.scoreDisplay.textContent = `Score: ${score}`;
   }
 
   /**
@@ -140,5 +282,186 @@ export class HUD {
       notification.style.opacity = '0';
       setTimeout(() => notification.remove(), fadeTime);
     }, safeDuration - fadeTime);
+  }
+
+  /**
+   * Show "+1" popup when hitting someone
+   * @param {string} targetName - Name of player hit
+   * @param {number} newScore - New score after hit
+   */
+  showHitNotification(targetName, newScore) {
+    // "+1" popup
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      position: fixed;
+      top: 45%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #44ff44;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 48px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      pointer-events: none;
+      z-index: 1000;
+    `;
+    popup.textContent = '+1';
+    document.body.appendChild(popup);
+
+    // Target name below
+    const namePopup = document.createElement('div');
+    namePopup.style.cssText = `
+      position: fixed;
+      top: 55%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 18px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+      pointer-events: none;
+      z-index: 1000;
+    `;
+    namePopup.textContent = `Hit ${targetName}!`;
+    document.body.appendChild(namePopup);
+
+    // Animate both up and fade
+    let opacity = 1;
+    let offsetY = 0;
+    const animate = () => {
+      opacity -= 0.015;
+      offsetY -= 1.5;
+      if (opacity <= 0) {
+        popup.remove();
+        namePopup.remove();
+        return;
+      }
+      popup.style.opacity = String(opacity);
+      popup.style.transform = `translate(-50%, calc(-50% + ${offsetY}px))`;
+      namePopup.style.opacity = String(opacity);
+      namePopup.style.transform = `translate(-50%, calc(-50% + ${offsetY}px))`;
+      requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }
+
+  /**
+   * Flash screen red when hit by another player
+   */
+  showGotHitEffect() {
+    const flash = document.createElement('div');
+    flash.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 0, 0, 0.3);
+      pointer-events: none;
+      z-index: 999;
+    `;
+    document.body.appendChild(flash);
+
+    // Quick fade
+    let opacity = 0.3;
+    const fade = () => {
+      opacity -= 0.02;
+      if (opacity <= 0) {
+        flash.remove();
+        return;
+      }
+      flash.style.background = `rgba(255, 0, 0, ${opacity})`;
+      requestAnimationFrame(fade);
+    };
+    requestAnimationFrame(fade);
+  }
+
+  /**
+   * Create loading indicator for tile loading state
+   * Shows centered message when many tiles are loading
+   */
+  createLoadingIndicator() {
+    this.loadingIndicator = document.createElement('div');
+    this.loadingIndicator.id = 'loading-indicator';
+    this.loadingIndicator.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      background: rgba(0,0,0,0.7);
+      padding: 10px 20px;
+      border-radius: 8px;
+      pointer-events: none;
+      display: none;
+      z-index: 1000;
+    `;
+    this.loadingIndicator.textContent = 'Loading terrain...';
+    this.container.appendChild(this.loadingIndicator);
+
+    // Track tile stats element (created lazily)
+    this.tileStats = null;
+  }
+
+  /**
+   * Update tile loading indicator based on queue state
+   * Shows indicator when many tiles are downloading/parsing
+   * @param {TilesRenderer} tilesRenderer - The 3D tiles renderer
+   */
+  updateTileLoading(tilesRenderer) {
+    if (!tilesRenderer || !this.loadingIndicator) return;
+
+    // Safely access queue sizes (API may vary between versions)
+    const downloading = tilesRenderer.downloadQueue?.itemsInList ?? 0;
+    const parsing = tilesRenderer.parseQueue?.itemsInList ?? 0;
+
+    // Show indicator if many tiles loading (thresholds tuned for good UX)
+    if (downloading > 20 || parsing > 5) {
+      this.loadingIndicator.textContent = `Loading terrain... (${downloading} tiles)`;
+      this.loadingIndicator.style.display = 'block';
+    } else {
+      this.loadingIndicator.style.display = 'none';
+    }
+  }
+
+  /**
+   * Show debug tile statistics (call when CONFIG.debug.showTileStats is true)
+   * Creates element lazily on first call
+   * @param {TilesRenderer} tilesRenderer - The 3D tiles renderer
+   */
+  showTileStats(tilesRenderer) {
+    if (!tilesRenderer) return;
+
+    // Create stats element on first call
+    if (!this.tileStats) {
+      this.tileStats = document.createElement('div');
+      this.tileStats.id = 'tile-stats';
+      this.tileStats.style.cssText = `
+        position: absolute;
+        bottom: 40px;
+        left: 10px;
+        color: #aaa;
+        font-family: monospace;
+        font-size: 12px;
+        background: rgba(0,0,0,0.5);
+        padding: 5px 8px;
+        border-radius: 4px;
+        pointer-events: none;
+      `;
+      this.container.appendChild(this.tileStats);
+    }
+
+    // Safely access cache and queue stats
+    const cache = tilesRenderer.lruCache;
+    const cachedBytes = cache?.cachedBytes ?? 0;
+    const maxBytes = cache?.maxBytesSize ?? 0;
+    const cacheMB = (cachedBytes / 1e6).toFixed(1);
+    const maxMB = (maxBytes / 1e6).toFixed(0);
+    const downloading = tilesRenderer.downloadQueue?.itemsInList ?? 0;
+    const parsing = tilesRenderer.parseQueue?.itemsInList ?? 0;
+
+    this.tileStats.innerHTML = `Cache: ${cacheMB}/${maxMB} MB | Queue: ${downloading}↓ ${parsing}⚙`;
   }
 }

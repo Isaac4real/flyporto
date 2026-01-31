@@ -11,6 +11,7 @@ export class TouchInput {
     this.roll = 0;
     this.throttle = 0.7;  // Start at 70% to match keyboard
     this.throttleInput = 0;  // -1, 0, or 1
+    this.firing = false;  // Fire button state
     this.enabled = false;
     this.leftJoystick = null;
 
@@ -23,6 +24,7 @@ export class TouchInput {
     this.setupTouchZones(container);
     this.setupJoystick();
     this.setupThrottleZones();
+    this.setupFireButton(container);
   }
 
   /**
@@ -138,6 +140,60 @@ export class TouchInput {
   }
 
   /**
+   * Setup fire button for combat
+   */
+  setupFireButton(container) {
+    this.fireButton = document.createElement('div');
+    this.fireButton.id = 'touch-fire';
+    this.fireButton.style.cssText = `
+      position: fixed;
+      right: 20px;
+      bottom: 50%;
+      transform: translateY(50%);
+      width: 80px;
+      height: 80px;
+      background: rgba(255, 50, 50, 0.5);
+      border: 3px solid rgba(255, 100, 100, 0.8);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+      user-select: none;
+      touch-action: none;
+      z-index: 100;
+    `;
+    this.fireButton.textContent = 'FIRE';
+    container.appendChild(this.fireButton);
+
+    this.fireButton.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      this.firing = true;
+      this.fireButton.style.background = 'rgba(255, 100, 100, 0.8)';
+    });
+    this.fireButton.addEventListener('touchend', () => {
+      this.firing = false;
+      this.fireButton.style.background = 'rgba(255, 50, 50, 0.5)';
+    });
+    this.fireButton.addEventListener('touchcancel', () => {
+      this.firing = false;
+      this.fireButton.style.background = 'rgba(255, 50, 50, 0.5)';
+    });
+  }
+
+  /**
+   * Check if fire button is being held
+   * @returns {boolean}
+   */
+  isFiring() {
+    return this.firing;
+  }
+
+  /**
    * Get current touch input state
    * @returns {Object} { pitch, roll, throttle }
    */
@@ -161,6 +217,9 @@ export class TouchInput {
     }
     if (this.rightZone && this.rightZone.parentNode) {
       this.rightZone.parentNode.removeChild(this.rightZone);
+    }
+    if (this.fireButton && this.fireButton.parentNode) {
+      this.fireButton.parentNode.removeChild(this.fireButton);
     }
   }
 }

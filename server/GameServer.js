@@ -26,7 +26,7 @@ export class GameServer {
     console.log(`[GameServer] Running on port ${port}`);
     console.log(`[GameServer] Broadcast rate: 10Hz (100ms)`);
     console.log(`[GameServer] Player timeout: 10 seconds`);
-    console.log(`[GameServer] Rate limit: 20 messages/second`);
+    console.log(`[GameServer] Rate limit: 30 messages/second (combat enabled)`);
   }
 
   handleConnection(ws, req) {
@@ -45,8 +45,8 @@ export class GameServer {
         lastReset = now;
       }
       messageCount++;
-      if (messageCount > 20) {
-        console.log(`[RateLimit] Disconnecting ${ip} - exceeded 20 msg/sec`);
+      if (messageCount > 30) {
+        console.log(`[RateLimit] Disconnecting ${ip} - exceeded 30 msg/sec`);
         ws.close(1008, 'Rate limit exceeded');
         return;
       }
@@ -108,7 +108,10 @@ export class GameServer {
         rotation: { x: 0, y: 0, z: 0 },
         velocity: { x: 0, y: 0, z: 0 },
         throttle: 0.5,
-        lastUpdate: Date.now()
+        lastUpdate: Date.now(),
+        // Combat stats
+        score: 0,
+        lastHitTime: 0
       });
 
       console.log(`[Join] ${name} (${playerId}) joined. Players: ${this.players.size}`);
@@ -117,17 +120,41 @@ export class GameServer {
 
     if (msg.type === 'position' && playerId) {
       const player = this.players.get(playerId);
-      if (player && this.validatePosition(msg)) {
-        player.position = msg.position;
-        player.rotation = msg.rotation;
-        player.velocity = msg.velocity || { x: 0, y: 0, z: 0 };
-        player.throttle = typeof msg.throttle === 'number' ? msg.throttle : 0.5;
+      if (player) {
+        // Always update lastUpdate to prevent timeout - player is still connected
         player.lastUpdate = Date.now();
+
+        // Only update position data if validation passes
+        if (this.validatePosition(msg)) {
+          player.position = msg.position;
+          player.rotation = msg.rotation;
+          player.velocity = msg.velocity || { x: 0, y: 0, z: 0 };
+          player.throttle = typeof msg.throttle === 'number' ? msg.throttle : 0.5;
+        }
       }
     }
 
     if (msg.type === 'ping') {
+      // Update lastUpdate to act as keepalive
+      if (playerId) {
+        const player = this.players.get(playerId);
+        if (player) {
+          player.lastUpdate = Date.now();
+        }
+      }
       ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+    }
+
+    // Combat: Player shooting
+    if (msg.type === 'shoot' && playerId) {
+      if (this.validateShootData(msg)) {
+        this.broadcastShoot(playerId, msg.position, msg.direction);
+      }
+    }
+
+    // Combat: Hit registered
+    if (msg.type === 'hit' && playerId) {
+      this.handleHit(playerId, msg.targetId);
     }
   }
 
@@ -138,6 +165,104 @@ export class GameServer {
     if (!name || typeof name !== 'string') return null;
     // Remove HTML tags and limit to 20 characters
     return name.replace(/<[^>]*>/g, '').trim().slice(0, 20);
+  }
+
+  /**
+   * Validate shoot message data
+   */
+  validateShootData(msg) {
+    if (!msg.position || !msg.direction) return false;
+
+    // Check position values are numbers
+    const { x, y, z } = msg.position;
+    if (typeof x !== 'number' || typeof y !== 'number' || typeof z !== 'number') {
+      return false;
+    }
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+      return false;
+    }
+
+    // Check direction values are numbers
+    const { x: dx, y: dy, z: dz } = msg.direction;
+    if (typeof dx !== 'number' || typeof dy !== 'number' || typeof dz !== 'number') {
+      return false;
+    }
+    if (!Number.isFinite(dx) || !Number.isFinite(dy) || !Number.isFinite(dz)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Broadcast shoot event to all other players (for visual effects)
+   */
+  broadcastShoot(shooterId, position, direction) {
+    const message = JSON.stringify({
+      type: 'player_shoot',
+      shooterId,
+      position,
+      direction,
+      timestamp: Date.now()
+    });
+
+    for (const [id, player] of this.players) {
+      if (id !== shooterId && player.ws.readyState === 1) {
+        player.ws.send(message);
+      }
+    }
+  }
+
+  /**
+   * Handle hit event - validate and update scores
+   */
+  handleHit(shooterId, targetId) {
+    const shooter = this.players.get(shooterId);
+    const target = this.players.get(targetId);
+
+    // Validation
+    if (!shooter || !target) {
+      return;
+    }
+
+    // Can't shoot yourself
+    if (shooterId === targetId) {
+      return;
+    }
+
+    // Rate limiting: max 10 hits per second per player
+    const now = Date.now();
+    if (now - shooter.lastHitTime < 100) {
+      return;
+    }
+    shooter.lastHitTime = now;
+
+    // Increment score
+    shooter.score = (shooter.score || 0) + 1;
+
+    console.log(`[Hit] ${shooter.name} hit ${target.name}. Score: ${shooter.score}`);
+
+    // Broadcast hit confirmation to all players
+    this.broadcastHitConfirmed(shooterId, targetId, shooter.score);
+  }
+
+  /**
+   * Broadcast hit confirmation to all players
+   */
+  broadcastHitConfirmed(shooterId, targetId, shooterScore) {
+    const message = JSON.stringify({
+      type: 'hit_confirmed',
+      shooterId,
+      targetId,
+      shooterScore,
+      timestamp: Date.now()
+    });
+
+    for (const [id, player] of this.players) {
+      if (player.ws.readyState === 1) {
+        player.ws.send(message);
+      }
+    }
   }
 
   /**
@@ -170,8 +295,10 @@ export class GameServer {
       return false;
     }
 
-    // Rotation should be reasonable (within 4π to handle wraparound)
-    const maxRotation = Math.PI * 4;
+    // Rotation should be reasonable
+    // Pitch (rx) and roll (rz) are clamped on client, but yaw (ry) can accumulate
+    // Use a very large limit to catch obvious bad data while allowing normal play
+    const maxRotation = Math.PI * 100;  // ~18000 degrees - catches NaN-adjacent issues
     if (Math.abs(rx) > maxRotation || Math.abs(ry) > maxRotation || Math.abs(rz) > maxRotation) {
       return false;
     }
@@ -185,8 +312,9 @@ export class GameServer {
   broadcast() {
     if (this.players.size === 0) return;
 
-    // Build players data (without ws references)
+    // Build players data (without ws references) and scores
     const playersData = {};
+    const scoresData = {};
     for (const [id, player] of this.players) {
       playersData[id] = {
         name: player.name,
@@ -196,11 +324,13 @@ export class GameServer {
         throttle: player.throttle,
         lastUpdate: player.lastUpdate
       };
+      scoresData[id] = player.score || 0;
     }
 
     const message = JSON.stringify({
       type: 'players',
       players: playersData,
+      scores: scoresData,
       count: this.players.size,
       timestamp: Date.now()
     });

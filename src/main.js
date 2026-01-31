@@ -13,6 +13,8 @@ import { TouchInput } from './input/TouchInput.js';
 import { CameraController } from './player/CameraController.js';
 import { NetworkManager } from './network/NetworkManager.js';
 import { PlayerSync } from './network/PlayerSync.js';
+import { CombatManager } from './combat/CombatManager.js';
+import { Leaderboard } from './combat/Leaderboard.js';
 
 // Initialize scene components
 const scene = createScene();
@@ -25,16 +27,17 @@ document.getElementById('container').appendChild(renderer.domElement);
 // Setup lighting
 setupLighting(scene);
 
-// Add ground fallback plane (dark ocean blue, visible when tiles haven't loaded)
-const groundGeometry = new THREE.PlaneGeometry(100000, 100000);
-const groundMaterial = new THREE.MeshBasicMaterial({
-  color: 0x1a3d5c,  // Dark ocean blue
+// Add fallback ground plane (visible when tiles haven't loaded)
+// Uses forest green - more natural than ocean blue when flying over land
+const fallbackGroundGeometry = new THREE.PlaneGeometry(20000, 20000);
+const fallbackGroundMaterial = new THREE.MeshBasicMaterial({
+  color: 0x1a4d2e,  // Forest green
   side: THREE.DoubleSide
 });
-const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-ground.rotation.x = -Math.PI / 2;  // Rotate to horizontal
-ground.position.y = 0;  // At sea level
-scene.add(ground);
+const fallbackGround = new THREE.Mesh(fallbackGroundGeometry, fallbackGroundMaterial);
+fallbackGround.rotation.x = -Math.PI / 2;  // Rotate to horizontal
+fallbackGround.position.y = -10;  // Slightly below sea level to avoid z-fighting
+scene.add(fallbackGround);
 
 // Initialize tiles renderer (includes ReorientationPlugin for Golden Gate Bridge)
 const tilesRenderer = createTilesRenderer(camera, renderer);
@@ -72,12 +75,16 @@ const networkManager = new NetworkManager(wsUrl);
 // Initialize player sync for rendering remote players
 const playerSync = new PlayerSync(scene);
 
+// Store players data for leaderboard
+let playersData = {};
+
 // Wire up network callbacks
 networkManager.onConnectionChange = (connected) => {
   hud.updateConnectionStatus(connected, 0);
 };
 
 networkManager.onPlayersUpdate = (players, count) => {
+  playersData = players;  // Store for leaderboard
   playerSync.updatePlayers(players);
   hud.updateConnectionStatus(true, count);
 };
@@ -101,8 +108,45 @@ networkManager.onPingUpdate = (ping) => {
   hud.updatePing(ping);
 };
 
+// Initialize combat system
+const combatManager = new CombatManager(scene, aircraft, playerSync, networkManager);
+
+// Helper to get all players data including local player for leaderboard
+function getAllPlayersData() {
+  const allPlayers = { ...playersData };
+  // Add local player
+  const myId = networkManager.getPlayerId();
+  if (myId) {
+    allPlayers[myId] = { name: networkManager.getPlayerName() };
+  }
+  return allPlayers;
+}
+
+// Wire up combat callbacks
+combatManager.onHit = (targetId, targetName, score) => {
+  hud.showHitNotification(targetName, score);
+  hud.updateScore(score);
+  leaderboard.update(combatManager.getScores(), getAllPlayersData());
+};
+
+combatManager.onGotHit = (shooterId, shooterName) => {
+  hud.showGotHitEffect();
+};
+
+// Initialize leaderboard
+const leaderboard = new Leaderboard(container, networkManager);
+
+// Wire up sound toggle
+hud.onSoundToggle = () => {
+  const enabled = combatManager.soundManager.toggle();
+  hud.updateSoundToggle(enabled);
+};
+
 // Create game loop
 const gameLoop = new GameLoop();
+
+// Leaderboard update throttling
+let lastLeaderboardUpdate = 0;
 
 // Main update callback
 function update(deltaTime) {
@@ -113,17 +157,46 @@ function update(deltaTime) {
   // 2. Update local physics
   updatePhysics(aircraft, input, deltaTime);
 
-  // 3. Send local position to server (throttled to 10Hz internally)
+  // 3. Check for firing (after input update)
+  if (inputHandler.isFiring()) {
+    combatManager.fire();
+  }
+
+  // 4. Send local position to server (throttled to 10Hz internally)
   networkManager.sendPosition(aircraft);
 
-  // 4. Update remote players (interpolation)
+  // 5. Update remote players (interpolation)
   playerSync.update(deltaTime);
 
-  // 5. Update camera to follow local aircraft
+  // 6. Update combat effects
+  combatManager.update(deltaTime);
+
+  // 7. Update camera to follow local aircraft
   cameraController.update(deltaTime);
 
-  // 6. Update HUD
+  // 8. Update HUD
   hud.update(aircraft.getSpeed(), aircraft.getAltitude());
+  hud.updateCrosshair(camera, aircraft, THREE);
+
+  // 9. Update leaderboard periodically (every 500ms, not every frame)
+  const now = performance.now();
+  if (now - lastLeaderboardUpdate > 500) {
+    lastLeaderboardUpdate = now;
+    leaderboard.update(combatManager.getScores(), getAllPlayersData());
+    hud.updateScore(combatManager.getScore());
+  }
+
+  // 10. Move fallback ground to follow aircraft (prevents seeing edge of plane)
+  fallbackGround.position.x = aircraft.position.x;
+  fallbackGround.position.z = aircraft.position.z;
+
+  // 11. Update tile loading indicator
+  hud.updateTileLoading(tilesRenderer);
+
+  // 12. Debug mode: show tile stats
+  if (CONFIG.debug.showTileStats) {
+    hud.showTileStats(tilesRenderer);
+  }
 
   // CRITICAL ORDER - camera matrix MUST update BEFORE tiles
   camera.updateMatrixWorld();

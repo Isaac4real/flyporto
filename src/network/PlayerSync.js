@@ -15,6 +15,7 @@ export class PlayerSync {
   constructor(scene) {
     this.scene = scene;
     this.remotePlayers = new Map();  // playerId -> RemoteAircraft
+    this.hitboxMeshes = [];          // Array of hitbox meshes for raycasting
   }
 
   /**
@@ -83,6 +84,12 @@ export class PlayerSync {
       }
     }
 
+    // Add hitbox mesh to scene (separate from aircraft mesh for raycasting)
+    if (aircraft.hitboxMesh) {
+      this.scene.add(aircraft.hitboxMesh);
+      this.hitboxMeshes.push(aircraft.hitboxMesh);
+    }
+
     this.remotePlayers.set(playerId, aircraft);
     this.scene.add(aircraft.mesh);
   }
@@ -95,6 +102,16 @@ export class PlayerSync {
     const aircraft = this.remotePlayers.get(playerId);
     if (aircraft) {
       console.log(`[PlayerSync] Removing remote player: ${aircraft.playerName} (${playerId})`);
+
+      // Remove hitbox mesh
+      if (aircraft.hitboxMesh) {
+        this.scene.remove(aircraft.hitboxMesh);
+        const index = this.hitboxMeshes.indexOf(aircraft.hitboxMesh);
+        if (index > -1) {
+          this.hitboxMeshes.splice(index, 1);
+        }
+      }
+
       this.scene.remove(aircraft.mesh);
       aircraft.dispose();
       this.remotePlayers.delete(playerId);
@@ -139,13 +156,25 @@ export class PlayerSync {
   }
 
   /**
+   * Get all hitbox meshes for raycasting
+   * @returns {THREE.Mesh[]}
+   */
+  getHitboxMeshes() {
+    return this.hitboxMeshes;
+  }
+
+  /**
    * Clean up all remote players and resources
    */
   dispose() {
     for (const [id, aircraft] of this.remotePlayers) {
+      if (aircraft.hitboxMesh) {
+        this.scene.remove(aircraft.hitboxMesh);
+      }
       this.scene.remove(aircraft.mesh);
       aircraft.dispose();
     }
     this.remotePlayers.clear();
+    this.hitboxMeshes = [];
   }
 }

@@ -8,6 +8,10 @@ export class InputHandler {
     this.keyboard = keyboardInput;
     this.touch = touchInput;
     this.throttle = 0.7;  // Track throttle internally (0-1 range) - start high
+
+    // Fire state tracking
+    this.firePressed = false;
+    this.fireJustPressed = false;
   }
 
   /**
@@ -22,6 +26,12 @@ export class InputHandler {
     if (this.keyboard.isActionActive('throttleDown')) {
       this.throttle = Math.max(0, this.throttle - deltaTime);
     }
+
+    // Update fire state (keyboard or touch)
+    const wasPressed = this.firePressed;
+    this.firePressed = this.keyboard.isActionActive('fire') ||
+                       (this.touch?.enabled && this.touch.isFiring?.());
+    this.fireJustPressed = this.firePressed && !wasPressed;
 
     // Update touch input (handles its own throttle)
     if (this.touch && this.touch.enabled) {
@@ -65,14 +75,28 @@ export class InputHandler {
       throttle = touchState.throttle;
     }
 
-    const autoLevel = this.keyboard.isActionActive('autoLevel');
-
     return {
       pitch,
       roll,
       yaw: 0,  // No direct yaw control (comes from banking)
       throttle,  // Now absolute value (0-1)
-      autoLevel
+      autoLevel: false  // Deprecated - Space is now fire
     };
+  }
+
+  /**
+   * Check if fire button is being held
+   * @returns {boolean}
+   */
+  isFiring() {
+    return this.firePressed;
+  }
+
+  /**
+   * Check if fire button was just pressed this frame
+   * @returns {boolean}
+   */
+  isFireJustPressed() {
+    return this.fireJustPressed;
   }
 }

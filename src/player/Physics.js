@@ -3,11 +3,38 @@ import { CONFIG } from '../config.js';
 const PHYSICS = CONFIG.physics;
 
 /**
- * Linear interpolation toward target
+ * Frame-rate independent exponential smoothing (smooth damp)
+ * Properly handles variable deltaTime unlike naive lerp
  * @param {number} current - Current value
  * @param {number} target - Target value
- * @param {number} t - Interpolation factor (0-1)
- * @returns {number} Interpolated value
+ * @param {number} rate - Smoothing rate (higher = faster convergence)
+ * @param {number} deltaTime - Time since last frame in seconds
+ * @returns {number} Smoothed value
+ */
+function smoothDamp(current, target, rate, deltaTime) {
+  // Exponential decay: approaches target asymptotically
+  // At rate=1, moves ~63% toward target per second
+  // At rate=5, moves ~99% toward target per second
+  return target + (current - target) * Math.exp(-rate * deltaTime);
+}
+
+/**
+ * Apply response curve to input for better control feel
+ * Reduces sensitivity near center while maintaining full authority at extremes
+ * Formula: y = a(x³) + (1-a)x where a is curve power
+ * @param {number} input - Raw input value (-1 to 1)
+ * @param {number} curvePower - Curve strength (0 = linear, 1 = full cubic)
+ * @returns {number} Curved input value
+ */
+function applyResponseCurve(input, curvePower) {
+  const sign = Math.sign(input);
+  const abs = Math.abs(input);
+  // Blend between linear (abs) and cubic (abs³) based on curvePower
+  return sign * (curvePower * abs * abs * abs + (1 - curvePower) * abs);
+}
+
+/**
+ * Legacy lerp - kept for compatibility but prefer smoothDamp
  */
 function lerp(current, target, t) {
   return current + (target - current) * Math.min(t, 1);
@@ -20,45 +47,37 @@ function lerp(current, target, t) {
  * @param {number} deltaTime - Time since last update in seconds
  */
 export function updatePhysics(aircraft, input, deltaTime) {
-  // Handle auto-level (panic button) - aggressively level the aircraft
-  if (input.autoLevel) {
-    // Use lerp for smooth, controlled leveling
-    aircraft.rotation.z = lerp(aircraft.rotation.z, 0, 5.0 * deltaTime);
-    aircraft.rotation.x = lerp(aircraft.rotation.x, 0, 5.0 * deltaTime);
-    aircraft.updateMatrices();
-
-    // Still apply velocity and position updates
-    aircraft.velocity.multiplyScalar(1 - PHYSICS.drag);
-    aircraft.position.addScaledVector(aircraft.velocity, deltaTime);
-    enforceMinAltitude(aircraft);
-    aircraft.updateMatrices();
-    return;
-  }
-
   // Ensure forward vector is current
   aircraft.updateMatrices();
 
-  // 1. Update throttle from input (now absolute value 0-1 from InputHandler)
-  aircraft.throttle = input.throttle;
+  // Get current speed for speed-dependent calculations
+  const speed = aircraft.getSpeed();
 
-  // 2. Apply thrust along forward vector
-  const thrustMagnitude = aircraft.throttle * PHYSICS.throttleAccel * deltaTime;
+  // 1. Smooth throttle response (target -> actual)
+  aircraft.targetThrottle = input.throttle;
+  aircraft.actualThrottle = smoothDamp(
+    aircraft.actualThrottle,
+    aircraft.targetThrottle,
+    PHYSICS.throttleSmoothRate || 2.5,
+    deltaTime
+  );
+  aircraft.throttle = aircraft.actualThrottle;  // Keep legacy property in sync
+
+  // 2. Apply thrust along forward vector using smoothed throttle
+  const thrustMagnitude = aircraft.actualThrottle * PHYSICS.throttleAccel * deltaTime;
   aircraft.velocity.addScaledVector(aircraft.forward, thrustMagnitude);
 
   // 3. Apply drag (proportional to velocity, multiplicative)
   aircraft.velocity.multiplyScalar(1 - PHYSICS.drag);
 
   // 4. Calculate lift based on speed and pitch angle
-  const speed = aircraft.getSpeed();
   const pitch = aircraft.rotation.x;  // + = nose down, - = nose up
 
-  // Speed-based lift foundation (equilibrium at ~100 m/s when level)
-  const cruiseSpeed = 100;
+  // Speed-based lift foundation (equilibrium at cruiseSpeed when level)
+  const cruiseSpeed = PHYSICS.cruiseSpeed || 100;
   const speedFactor = Math.min(speed / cruiseSpeed, 1.2);
 
   // Pitch modifier: nose up (negative pitch) increases lift, nose down decreases it
-  // sin(-0.3) ≈ -0.3, so pitchMod ≈ 1.6 (more lift, climb)
-  // sin(+0.3) ≈ +0.3, so pitchMod ≈ 0.4 (less lift, descend)
   const pitchMod = 1 - Math.sin(pitch) * 2;
 
   // Final lift calculation (clamped to prevent negative lift)
@@ -71,68 +90,101 @@ export function updatePhysics(aircraft, input, deltaTime) {
     aircraft.velocity.setLength(PHYSICS.maxSpeed);
   }
 
-  // 6. Apply rotation from controls
-  applyRotation(aircraft, input, deltaTime);
+  // 6. Apply rotation from controls (with smoothing and response curves)
+  applyRotation(aircraft, input, deltaTime, speed);
 
   // 7. Update position from velocity
   aircraft.position.addScaledVector(aircraft.velocity, deltaTime);
 
   // 8. Clamp minimum altitude (forgiving collision)
-  enforceMinAltitude(aircraft);
+  enforceMinAltitude(aircraft, deltaTime);
 
   // 9. Final matrix update
   aircraft.updateMatrices();
 }
 
 /**
- * Apply rotation based on input with auto-level behavior
+ * Apply rotation based on input with smoothing, response curves, and auto-level
  * @param {Aircraft} aircraft
  * @param {Object} input
  * @param {number} deltaTime
+ * @param {number} speed - Current aircraft speed for speed-dependent control
  */
-function applyRotation(aircraft, input, deltaTime) {
-  // Roll (bank) - Z rotation
-  if (input.roll !== 0) {
-    // Apply roll input
-    aircraft.rotation.z += input.roll * PHYSICS.rollRate * deltaTime;
-    // Clamp roll to prevent excessive banking
-    aircraft.rotation.z = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, aircraft.rotation.z));
+function applyRotation(aircraft, input, deltaTime, speed) {
+  // Get config values with defaults
+  const inputSmoothRate = PHYSICS.inputSmoothRate || 6.0;
+  const autoLevelRate = PHYSICS.autoLevelRate || 3.0;
+  const curvePower = PHYSICS.inputCurvePower || 0.4;
+  const cruiseSpeed = PHYSICS.cruiseSpeed || 100;
+  const minSpeedFactor = PHYSICS.minSpeedFactor || 0.4;
+
+  // Calculate speed-dependent control authority
+  // At cruiseSpeed, full authority. Below that, reduced authority (but never below minSpeedFactor)
+  const speedAuthority = Math.max(minSpeedFactor, Math.min(1.0, speed / cruiseSpeed));
+
+  // Apply response curves to raw input (reduces sensitivity near center)
+  const curvedPitch = applyResponseCurve(input.pitch, curvePower);
+  const curvedRoll = applyResponseCurve(input.roll, curvePower);
+
+  // Set target values from curved input
+  aircraft.targetPitch = curvedPitch;
+  aircraft.targetRoll = curvedRoll;
+
+  // Smooth actual input values toward targets (frame-rate independent)
+  aircraft.actualPitch = smoothDamp(aircraft.actualPitch, aircraft.targetPitch, inputSmoothRate, deltaTime);
+  aircraft.actualRoll = smoothDamp(aircraft.actualRoll, aircraft.targetRoll, inputSmoothRate, deltaTime);
+
+  // Calculate effective rotation rates with speed authority
+  const effectivePitchRate = PHYSICS.pitchRate * speedAuthority;
+  const effectiveRollRate = PHYSICS.rollRate * speedAuthority;
+
+  // Apply roll (bank) - Z rotation
+  if (Math.abs(aircraft.actualRoll) > 0.01) {
+    // Apply smoothed roll input with speed-dependent rate
+    aircraft.rotation.z += aircraft.actualRoll * effectiveRollRate * deltaTime;
+    // Clamp roll to prevent excessive banking (±70 degrees)
+    aircraft.rotation.z = Math.max(-Math.PI * 0.39, Math.min(Math.PI * 0.39, aircraft.rotation.z));
   } else {
-    // Auto-level roll when no input (use lerp for smooth return)
-    aircraft.rotation.z = lerp(aircraft.rotation.z, 0, PHYSICS.autoLevelRate * deltaTime);
+    // Auto-level roll when no significant input (frame-rate independent)
+    aircraft.rotation.z = smoothDamp(aircraft.rotation.z, 0, autoLevelRate, deltaTime);
   }
 
-  // Pitch - X rotation
-  if (input.pitch !== 0) {
-    // Apply pitch input
-    aircraft.rotation.x += input.pitch * PHYSICS.pitchRate * deltaTime;
+  // Apply pitch - X rotation
+  if (Math.abs(aircraft.actualPitch) > 0.01) {
+    // Apply smoothed pitch input with speed-dependent rate
+    aircraft.rotation.x += aircraft.actualPitch * effectivePitchRate * deltaTime;
   } else {
-    // Auto-level pitch when no input
-    aircraft.rotation.x = lerp(aircraft.rotation.x, 0, PHYSICS.autoLevelRate * deltaTime);
+    // Auto-level pitch when no significant input (frame-rate independent)
+    aircraft.rotation.x = smoothDamp(aircraft.rotation.x, 0, autoLevelRate, deltaTime);
   }
 
-  // Clamp pitch to prevent over-rotation (±60 degrees)
-  aircraft.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, aircraft.rotation.x));
+  // Clamp pitch to prevent over-rotation (±50 degrees - slightly tighter than roll)
+  aircraft.rotation.x = Math.max(-Math.PI * 0.28, Math.min(Math.PI * 0.28, aircraft.rotation.x));
 
   // Yaw from bank angle (coordinated turn)
-  // Use tan(bank) for more realistic turn rate - steeper bank = tighter turn
-  // Clamp to prevent extreme values at high bank angles
+  // Use sin(2*bank) instead of tan(bank) for smoother, bounded behavior
+  // sin(2x) gives good turn response: peaks at 45° bank, returns toward 0 at 90°
   const bankAngle = aircraft.rotation.z;
-  const clampedTan = Math.max(-2, Math.min(2, Math.tan(bankAngle)));
-  const turnRate = clampedTan * PHYSICS.turnRate * 0.5;
-  aircraft.rotation.y += turnRate * deltaTime;
+  const turnFactor = Math.sin(bankAngle * 2);
+  const effectiveTurnRate = PHYSICS.turnRate * speedAuthority;
+  aircraft.rotation.y += turnFactor * effectiveTurnRate * deltaTime;
 
   // Direct yaw input (optional, for rudder-like control)
   if (input.yaw !== 0) {
-    aircraft.rotation.y += input.yaw * PHYSICS.turnRate * 0.3 * deltaTime;
+    aircraft.rotation.y += input.yaw * effectiveTurnRate * 0.3 * deltaTime;
   }
+
+  // Normalize yaw to [-π, π] to prevent accumulation over time
+  while (aircraft.rotation.y > Math.PI) aircraft.rotation.y -= Math.PI * 2;
+  while (aircraft.rotation.y < -Math.PI) aircraft.rotation.y += Math.PI * 2;
 }
 
 /**
  * Enforce minimum altitude with gentle bounce
  * @param {Aircraft} aircraft
+ * @param {number} deltaTime - Time since last frame
  */
-function enforceMinAltitude(aircraft) {
+function enforceMinAltitude(aircraft, deltaTime) {
   const altitude = aircraft.getAltitude();
 
   if (altitude < PHYSICS.minAltitude) {
@@ -144,8 +196,9 @@ function enforceMinAltitude(aircraft) {
       aircraft.velocity.y = Math.abs(aircraft.velocity.y) * 0.3;  // 30% bounce
     }
 
-    // Gently level out when near ground
-    aircraft.rotation.x = lerp(aircraft.rotation.x, 0, 0.1);
-    aircraft.rotation.z = lerp(aircraft.rotation.z, 0, 0.1);
+    // Gently level out when near ground (frame-rate independent)
+    const groundLevelRate = 5.0;  // Aggressive leveling near ground
+    aircraft.rotation.x = smoothDamp(aircraft.rotation.x, 0, groundLevelRate, deltaTime);
+    aircraft.rotation.z = smoothDamp(aircraft.rotation.z, 0, groundLevelRate, deltaTime);
   }
 }

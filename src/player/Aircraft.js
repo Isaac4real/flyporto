@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { CONFIG } from '../config.js';
+
+const AIRCRAFT_SCALE = CONFIG.aircraft?.scale || 2.0;
 
 /**
  * Aircraft - manages aircraft state and mesh
@@ -14,7 +17,18 @@ export class Aircraft {
     this.rotation = new THREE.Euler(0, 0, 0, 'XYZ');
     // Start with forward velocity - plane should already be flying!
     this.velocity = new THREE.Vector3(0, 0, -60);  // 60 m/s forward (-Z is forward)
-    this.throttle = 0.7;  // Start at 70% throttle
+
+    // Throttle with smoothing (target = input, actual = smoothed)
+    this.targetThrottle = 0.7;
+    this.actualThrottle = 0.7;
+    this.throttle = 0.7;  // Legacy - kept for compatibility
+
+    // Smoothed input state for responsive but not twitchy controls
+    // Target values come from raw input, actual values are smoothed
+    this.targetPitch = 0;
+    this.targetRoll = 0;
+    this.actualPitch = 0;
+    this.actualRoll = 0;
 
     // Computed forward vector (updated by updateMatrices)
     this.forward = new THREE.Vector3(0, 0, -1);
@@ -84,7 +98,20 @@ export class Aircraft {
     hStab.position.set(0, 0, 6.5);
     group.add(hStab);
 
+    // Scale up the entire aircraft
+    group.scale.setScalar(AIRCRAFT_SCALE);
+
     return group;
+  }
+
+  /**
+   * Get hitbox radius for collision detection
+   * Based on scaled aircraft size (wingspan is largest dimension)
+   * @returns {number} Hitbox radius in meters
+   */
+  getHitboxRadius() {
+    const baseRadius = CONFIG.aircraft?.hitboxRadius || 15;
+    return baseRadius * AIRCRAFT_SCALE;
   }
 
   /**
