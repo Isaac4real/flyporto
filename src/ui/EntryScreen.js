@@ -56,7 +56,7 @@ export class EntryScreen {
         </button>
 
         <div class="controls-hint">
-          <p><strong>WASD</strong> to fly • <strong>Space/F</strong> to fire</p>
+          <p><strong>Mouse</strong> to aim • <strong>WASD</strong> to fly • <strong>Click/Space</strong> to fire</p>
         </div>
       </div>
     `;

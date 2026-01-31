@@ -76,6 +76,17 @@ export const CONFIG = {
     hitMarkerDuration: 300  // ms
   },
 
+  // Mouse aim settings (War Thunder-style mouse flight control)
+  mouse: {
+    sensitivity: 0.15,       // Degrees per pixel of mouse movement
+    smoothing: 0.15,         // Input smoothing (0 = none, 1 = very smooth)
+    maxPitchOffset: 45,      // Max vertical aim offset in degrees
+    maxYawOffset: 60,        // Max horizontal aim offset in degrees
+    invertY: false,          // Invert vertical mouse axis
+    instructorPitchGain: 2.0, // How aggressively to pitch toward aim
+    instructorRollGain: 2.5   // How aggressively to bank toward aim
+  },
+
   // Debug settings
   debug: {
     showHitboxes: false,    // Set to true to see hitbox wireframes

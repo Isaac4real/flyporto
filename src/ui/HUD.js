@@ -12,7 +12,7 @@ export class HUD {
     this.element.innerHTML = `
       <div id="hud-speed">0 kts</div>
       <div id="hud-altitude">0m</div>
-      <div id="hud-hints">WASD to fly | Space/F to fire</div>
+      <div id="hud-hints">Click to aim with mouse | WASD to fly | Space/F/Click to fire</div>
     `;
     container.appendChild(this.element);
 
@@ -67,8 +67,11 @@ export class HUD {
     `;
     container.appendChild(this.pingDisplay);
 
-    // Crosshair
+    // Crosshair (shows where aircraft is pointing)
     this.createCrosshair();
+
+    // Mouse aim reticle (shows where mouse is pointing)
+    this.createMouseAimReticle();
 
     // Sound toggle
     this.createSoundToggle();
@@ -114,6 +117,88 @@ export class HUD {
 
     // Reusable vector for aim point calculation
     this._aimPoint = null;
+  }
+
+  /**
+   * Create mouse aim reticle (shows where mouse is pointing - the target)
+   * This is the outer circle that the player controls with mouse movement.
+   * The crosshair (aircraft heading) will chase this reticle.
+   */
+  createMouseAimReticle() {
+    this.mouseAimReticle = document.createElement('div');
+    this.mouseAimReticle.id = 'mouse-aim-reticle';
+    this.mouseAimReticle.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 40px;
+      pointer-events: none;
+      z-index: 99;
+      opacity: 0;
+      transition: opacity 0.2s;
+    `;
+
+    // Circle reticle design (War Thunder style)
+    this.mouseAimReticle.innerHTML = `
+      <svg width="40" height="40" viewBox="0 0 40 40">
+        <!-- Outer circle -->
+        <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+        <!-- Small tick marks -->
+        <line x1="20" y1="2" x2="20" y2="6" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+        <line x1="20" y1="34" x2="20" y2="38" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+        <line x1="2" y1="20" x2="6" y2="20" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+        <line x1="34" y1="20" x2="38" y2="20" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+        <!-- Center dot -->
+        <circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.5)"/>
+      </svg>
+    `;
+
+    this.container.appendChild(this.mouseAimReticle);
+  }
+
+  /**
+   * Update mouse aim reticle position
+   * @param {Object} aimOffset - { pitch, yaw } in degrees from InputHandler
+   * @param {boolean} isLocked - Whether pointer is locked
+   * @param {boolean} keyboardActive - Whether keyboard is overriding
+   */
+  updateMouseAimReticle(aimOffset, isLocked, keyboardActive = false) {
+    if (!this.mouseAimReticle) return;
+
+    if (!isLocked || !aimOffset) {
+      // Hide when not using mouse aim
+      this.mouseAimReticle.style.opacity = '0';
+      return;
+    }
+
+    // Show the reticle
+    this.mouseAimReticle.style.opacity = keyboardActive ? '0.3' : '1';
+
+    // Convert aim offset (degrees) to screen position
+    // Center of screen = 0,0 offset
+    // Max offset = edge of screen (roughly)
+    const screenCenterX = window.innerWidth / 2;
+    const screenCenterY = window.innerHeight / 2;
+
+    // Scale factor: how many pixels per degree
+    // Adjusted so max offset (~45°) reaches about 40% from center to edge
+    const pixelsPerDegree = Math.min(window.innerWidth, window.innerHeight) * 0.008;
+
+    const offsetX = aimOffset.yaw * pixelsPerDegree;
+    const offsetY = -aimOffset.pitch * pixelsPerDegree;  // Negative because screen Y is inverted
+
+    const screenX = screenCenterX + offsetX;
+    const screenY = screenCenterY + offsetY;
+
+    // Clamp to screen bounds with padding
+    const padding = 30;
+    const clampedX = Math.max(padding, Math.min(window.innerWidth - padding, screenX));
+    const clampedY = Math.max(padding, Math.min(window.innerHeight - padding, screenY));
+
+    this.mouseAimReticle.style.left = `${clampedX}px`;
+    this.mouseAimReticle.style.top = `${clampedY}px`;
   }
 
   /**
