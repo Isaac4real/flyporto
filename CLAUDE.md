@@ -171,11 +171,10 @@ const CAMERA = {
 };
 ```
 
-## What NOT to Build
+## What NOT to Build (for now)
 
-Focus on single-player flight that makes people say "holy shit."
+Focus on multiplayer flight that makes people say "holy shit."
 
-- ❌ Multiplayer / networking
 - ❌ Multiple aircraft types
 - ❌ Combat / weapons
 - ❌ Missions / objectives
@@ -183,23 +182,99 @@ Focus on single-player flight that makes people say "holy shit."
 - ❌ Sound effects (unless trivial)
 - ❌ Weather / fog effects
 - ❌ VR support
+- ❌ Chat system (future)
 
 ## Implementation Stages
 
 See `docs/stages/` for detailed implementation plans:
 
+### Single-Player (Complete)
 1. **Stage 1: Project Foundation** - Vite + Three.js + basic scene ✅
 2. **Stage 2: 3D Tiles Integration** - Google Photorealistic 3D Tiles ✅
-   - OrbitControls are temporary (for testing) - will be replaced with flight controls
 3. **Stage 3: Flight Core** - Aircraft + physics engine ✅
-   - Aircraft class with position/rotation/velocity state
-   - Arcade physics engine with thrust, drag, lift, gravity
-   - GameLoop with delta time (capped at 100ms)
-   - Test input hardcoded (gentle right turn) - will be replaced by keyboard in Stage 4
-   - Physics constants in `src/config.js` - tune as needed
-4. **Stage 4: Controls & Camera** - Keyboard input + follow camera
-5. **Stage 5: HUD & Polish** - Touch controls + HUD + mobile optimization
-6. **Stage 6: Deployment** - Production build + hosting
+4. **Stage 4: Controls & Camera** - Keyboard input + follow camera ✅
+5. **Stage 5: HUD & Polish** - Touch controls + HUD + mobile ✅
+6. **Stage 6: Deployment** - Production build + Vercel ✅
+
+### Multiplayer (Current)
+7. **Stage 7: Multiplayer Server** - WebSocket server on Fly.io
+   - Node.js + ws library
+   - Receives positions, broadcasts at 10Hz
+   - Rate limiting, player timeout (10s)
+8. **Stage 8: Multiplayer Client** - NetworkManager
+   - WebSocket connection with auto-reconnect
+   - Send position at 10Hz
+   - Player ID persistence (localStorage)
+9. **Stage 9: Remote Players** - PlayerSync
+   - Render other players' aircraft (blue color)
+   - Create/destroy on join/leave
+   - Basic interpolation
+10. **Stage 10: Multiplayer Polish** - Smooth experience
+    - Buffered interpolation
+    - Player name labels
+    - Join/leave notifications
+    - Ping display
+
+## Multiplayer Architecture
+
+```
+Browser Clients          WebSocket Server (Fly.io)
+┌─────────────┐          ┌─────────────────┐
+│  Client A   │◄────────►│  Node.js + ws   │
+│  - Physics  │ Position │  - Broadcast    │
+│  - Renders  │ Updates  │    at 10Hz      │
+│    others   │ (10Hz)   │  - Player       │
+└─────────────┘          │    timeout      │
+┌─────────────┐          │  - Rate limit   │
+│  Client B   │◄────────►│                 │
+└─────────────┘          └─────────────────┘
+```
+
+**Key patterns:**
+- Client-authoritative (each client runs own physics)
+- Simple broadcast model (like fly.pieter.com)
+- 10Hz update rate (100ms intervals)
+- JSON messages (binary optimization later)
+
+## Network Message Types
+
+```javascript
+// Client → Server
+{ type: 'join', id: 'uuid', name: 'Pilot-1234' }
+{ type: 'position', id: 'uuid', position: {x,y,z}, rotation: {x,y,z}, velocity: {x,y,z} }
+
+// Server → Client
+{ type: 'players', players: { id: {...}, id: {...} }, count: 5 }
+{ type: 'player_joined', id: 'uuid', name: 'Pilot-1234' }
+{ type: 'player_left', id: 'uuid' }
+```
+
+## New Files for Multiplayer
+
+```
+server/                    # Separate Node.js project
+├── package.json
+├── index.js
+├── GameServer.js
+└── fly.toml              # Fly.io deployment config
+
+src/network/               # Client networking
+├── NetworkManager.js     # WebSocket connection
+├── PlayerSync.js         # Remote player management
+├── RemoteAircraft.js     # Remote player aircraft
+└── Interpolation.js      # Position buffering
+```
+
+## Environment Variables
+
+```bash
+# Client (.env)
+VITE_GOOGLE_MAPS_API_KEY=your_key
+VITE_WS_URL=wss://flysf-server.fly.dev
+
+# Server
+PORT=8080
+```
 
 ## Success Criteria
 
