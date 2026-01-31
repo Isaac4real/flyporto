@@ -37,7 +37,6 @@ export class NetworkManager {
     this.pingSentTime = 0;
     this.lastPing = 0;
     this.pingInterval = null;
-    this.pingMeasureInterval = null;
 
     // Handle visibility change (reconnect when tab becomes visible)
     document.addEventListener('visibilitychange', () => {
@@ -55,24 +54,34 @@ export class NetworkManager {
    * Get or create persistent player ID from localStorage
    */
   getOrCreatePlayerId() {
-    let id = localStorage.getItem('flysf-player-id');
-    if (!id) {
-      id = 'player-' + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem('flysf-player-id', id);
+    try {
+      let id = localStorage.getItem('flysf-player-id');
+      if (!id) {
+        id = 'player-' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('flysf-player-id', id);
+      }
+      return id;
+    } catch (e) {
+      // localStorage may be disabled (private browsing)
+      return 'player-' + Math.random().toString(36).substr(2, 9);
     }
-    return id;
   }
 
   /**
    * Get or create player name from localStorage
    */
   getOrCreatePlayerName() {
-    let name = localStorage.getItem('flysf-player-name');
-    if (!name) {
-      name = 'Pilot-' + Math.floor(Math.random() * 9999);
-      localStorage.setItem('flysf-player-name', name);
+    try {
+      let name = localStorage.getItem('flysf-player-name');
+      if (!name) {
+        name = 'Pilot-' + Math.floor(Math.random() * 9999);
+        localStorage.setItem('flysf-player-name', name);
+      }
+      return name;
+    } catch (e) {
+      // localStorage may be disabled (private browsing)
+      return 'Pilot-' + Math.floor(Math.random() * 9999);
     }
-    return name;
   }
 
   /**
@@ -236,18 +245,14 @@ export class NetworkManager {
   }
 
   /**
-   * Start keepalive and ping measurement intervals
+   * Start keepalive and ping measurement interval
+   * Runs every 5 seconds - serves as both keepalive and latency measurement
    */
   startPingInterval() {
     this.stopPingInterval();
 
-    // Keepalive ping every 30 seconds
+    // Single interval for both keepalive and ping measurement (every 5 seconds)
     this.pingInterval = setInterval(() => {
-      this.measurePing();
-    }, 30000);
-
-    // Measure ping every 5 seconds for HUD display
-    this.pingMeasureInterval = setInterval(() => {
       this.measurePing();
     }, 5000);
 
@@ -262,10 +267,6 @@ export class NetworkManager {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
-    }
-    if (this.pingMeasureInterval) {
-      clearInterval(this.pingMeasureInterval);
-      this.pingMeasureInterval = null;
     }
   }
 
@@ -312,7 +313,11 @@ export class NetworkManager {
    */
   setPlayerName(name) {
     this.playerName = name;
-    localStorage.setItem('flysf-player-name', name);
+    try {
+      localStorage.setItem('flysf-player-name', name);
+    } catch (e) {
+      // localStorage may be disabled
+    }
   }
 
   /**

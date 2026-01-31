@@ -51,6 +51,11 @@ export class PlayerSync {
    * @param {Object} initialData - Initial position/rotation data
    */
   addPlayer(playerId, playerName, initialData) {
+    // Don't add duplicate players
+    if (this.remotePlayers.has(playerId)) {
+      return;
+    }
+
     console.log(`[PlayerSync] Adding remote player: ${playerName} (${playerId})`);
 
     const aircraft = new RemoteAircraft(playerId, playerName);
@@ -60,10 +65,22 @@ export class PlayerSync {
       aircraft.setNetworkState(initialData);
 
       // Snap to initial position immediately (no interpolation for first frame)
-      aircraft.position.copy(aircraft.targetPosition);
-      aircraft.rotation.copy(aircraft.targetRotation);
-      aircraft.mesh.position.copy(aircraft.position);
-      aircraft.mesh.rotation.copy(aircraft.rotation);
+      if (initialData.position) {
+        aircraft.position.set(
+          initialData.position.x,
+          initialData.position.y,
+          initialData.position.z
+        );
+        aircraft.mesh.position.copy(aircraft.position);
+      }
+      if (initialData.rotation) {
+        aircraft.rotation.set(
+          initialData.rotation.x,
+          initialData.rotation.y,
+          initialData.rotation.z
+        );
+        aircraft.mesh.rotation.copy(aircraft.rotation);
+      }
     }
 
     this.remotePlayers.set(playerId, aircraft);

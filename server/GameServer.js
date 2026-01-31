@@ -76,6 +76,25 @@ export class GameServer {
 
   handleMessage(ws, msg, playerId, setPlayerId) {
     if (msg.type === 'join') {
+      // Validate player ID
+      if (!msg.id || typeof msg.id !== 'string' || msg.id.length < 5 || msg.id.length > 50) {
+        console.log('[Join] Invalid player ID rejected');
+        return;
+      }
+
+      // Prevent duplicate joins from same connection
+      if (playerId) {
+        console.log('[Join] Duplicate join attempt rejected');
+        return;
+      }
+
+      // Check if ID is already in use by another connection
+      const existingPlayer = this.players.get(msg.id);
+      if (existingPlayer && existingPlayer.ws !== ws) {
+        // ID collision - generate a new unique suffix
+        msg.id = msg.id + '-' + Math.random().toString(36).substr(2, 4);
+      }
+
       playerId = msg.id;
       setPlayerId(playerId);
 
@@ -122,24 +141,38 @@ export class GameServer {
   }
 
   /**
-   * Validate position data is within reasonable bounds
+   * Validate position and rotation data
    */
   validatePosition(msg) {
     if (!msg.position || !msg.rotation) return false;
 
     const { x, y, z } = msg.position;
 
-    // Check for NaN or undefined
+    // Check position for NaN or undefined
     if (typeof x !== 'number' || typeof y !== 'number' || typeof z !== 'number') {
       return false;
     }
-    if (isNaN(x) || isNaN(y) || isNaN(z)) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
       return false;
     }
 
     // Basic bounds check (within reasonable flying area)
-    // These are world coordinates, not lat/lon
     if (Math.abs(x) > 100000 || y < -100 || y > 50000 || Math.abs(z) > 100000) {
+      return false;
+    }
+
+    // Validate rotation values
+    const { x: rx, y: ry, z: rz } = msg.rotation;
+    if (typeof rx !== 'number' || typeof ry !== 'number' || typeof rz !== 'number') {
+      return false;
+    }
+    if (!Number.isFinite(rx) || !Number.isFinite(ry) || !Number.isFinite(rz)) {
+      return false;
+    }
+
+    // Rotation should be reasonable (within 4π to handle wraparound)
+    const maxRotation = Math.PI * 4;
+    if (Math.abs(rx) > maxRotation || Math.abs(ry) > maxRotation || Math.abs(rz) > maxRotation) {
       return false;
     }
 

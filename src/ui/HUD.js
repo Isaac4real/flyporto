@@ -108,9 +108,13 @@ export class HUD {
   /**
    * Show a notification that fades out
    * @param {string} message - Notification message
-   * @param {number} duration - Duration in milliseconds
+   * @param {number} duration - Duration in milliseconds (minimum 1000ms)
    */
   showNotification(message, duration = 3000) {
+    // Ensure minimum duration for fade animation
+    const safeDuration = Math.max(1000, duration);
+    const fadeTime = 500;
+
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
@@ -125,7 +129,8 @@ export class HUD {
       font-size: 14px;
       z-index: 1000;
       opacity: 1;
-      transition: opacity 0.5s ease-out;
+      transition: opacity ${fadeTime}ms ease-out;
+      pointer-events: none;
     `;
     notification.textContent = message;
     this.container.appendChild(notification);
@@ -133,7 +138,7 @@ export class HUD {
     // Fade out and remove
     setTimeout(() => {
       notification.style.opacity = '0';
-      setTimeout(() => notification.remove(), 500);
-    }, duration - 500);
+      setTimeout(() => notification.remove(), fadeTime);
+    }, safeDuration - fadeTime);
   }
 }

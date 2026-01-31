@@ -92,7 +92,12 @@ export class PositionBuffer {
     }
 
     // Interpolate between older and newer
-    const t = (renderTime - older.timestamp) / (newer.timestamp - older.timestamp);
+    const timeDelta = newer.timestamp - older.timestamp;
+    // Avoid division by zero (use newer state if timestamps are identical)
+    if (timeDelta === 0) {
+      return newer;
+    }
+    const t = (renderTime - older.timestamp) / timeDelta;
     const clampedT = Math.max(0, Math.min(1, t));
 
     return {
