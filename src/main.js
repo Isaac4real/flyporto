@@ -12,6 +12,7 @@ import { InputHandler } from './input/InputHandler.js';
 import { TouchInput } from './input/TouchInput.js';
 import { CameraController } from './player/CameraController.js';
 import { NetworkManager } from './network/NetworkManager.js';
+import { PlayerSync } from './network/PlayerSync.js';
 
 // Initialize scene components
 const scene = createScene();
@@ -68,22 +69,26 @@ const hud = new HUD(container);
 const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
 const networkManager = new NetworkManager(wsUrl);
 
+// Initialize player sync for rendering remote players
+const playerSync = new PlayerSync(scene);
+
 // Wire up network callbacks
 networkManager.onConnectionChange = (connected) => {
   hud.updateConnectionStatus(connected, 0);
 };
 
 networkManager.onPlayersUpdate = (players, count) => {
+  playerSync.updatePlayers(players);
   hud.updateConnectionStatus(true, count);
-  // Note: PlayerSync (Stage 9) will handle rendering other players
 };
 
 networkManager.onPlayerJoined = (id, name) => {
   console.log(`${name} joined the game`);
+  // Player will be added on next updatePlayers call
 };
 
 networkManager.onPlayerLeft = (id) => {
-  console.log(`Player ${id} left the game`);
+  playerSync.removePlayer(id);
 };
 
 // Create game loop
@@ -95,17 +100,20 @@ function update(deltaTime) {
   inputHandler.update(deltaTime);
   const input = inputHandler.getState();
 
-  // 2. Update physics with player input
+  // 2. Update local physics
   updatePhysics(aircraft, input, deltaTime);
 
-  // 3. Update camera to follow aircraft
+  // 3. Send local position to server (throttled to 10Hz internally)
+  networkManager.sendPosition(aircraft);
+
+  // 4. Update remote players (interpolation)
+  playerSync.update(deltaTime);
+
+  // 5. Update camera to follow local aircraft
   cameraController.update(deltaTime);
 
-  // 4. Update HUD with current speed and altitude
+  // 6. Update HUD
   hud.update(aircraft.getSpeed(), aircraft.getAltitude());
-
-  // 5. Send position to multiplayer server (throttled to 10Hz internally)
-  networkManager.sendPosition(aircraft);
 
   // CRITICAL ORDER - camera matrix MUST update BEFORE tiles
   camera.updateMatrixWorld();
