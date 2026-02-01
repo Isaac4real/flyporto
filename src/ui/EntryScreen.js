@@ -111,10 +111,11 @@ export class EntryScreen {
 
       #entry-screen {
         position: fixed;
-        top: 0;
+        top: var(--top-banner-height, 0px);
         left: 0;
         right: 0;
         bottom: 0;
+        height: calc(100% - var(--top-banner-height, 0px));
         background: transparent;
         display: flex;
         align-items: center;

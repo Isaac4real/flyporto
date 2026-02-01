@@ -47,6 +47,14 @@ function createRateLimitBanner() {
   `;
 
   document.body.appendChild(banner);
+
+  const updateBannerHeight = () => {
+    const height = banner.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--top-banner-height', `${height}px`);
+  };
+
+  updateBannerHeight();
+  window.addEventListener('resize', updateBannerHeight);
 }
 
 // ============================================================================
