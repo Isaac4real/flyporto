@@ -50,19 +50,26 @@ export class Aircraft {
 
     // State
     this.position = initialPosition.clone();
-    this.rotation = new THREE.Euler(0, yaw, 0, 'XYZ');
-    // Start with forward velocity in the heading direction
-    const speed = 60;  // 60 m/s forward
+    this.rotation = new THREE.Euler(0, yaw, 0, 'YXZ');
+
+    // Arcade flight state
+    this.pitch = 0;    // radians (positive = nose up)
+    this.roll = 0;     // radians (positive = bank left)
+    this.yaw = yaw;    // radians (heading)
+    this.speed = CONFIG.physics?.startSpeed ?? 60; // m/s
+    this.verticalSpeed = 0; // m/s
+
+    // Derived velocity (updated in physics)
     this.velocity = new THREE.Vector3(
-      -Math.sin(yaw) * speed,
+      -Math.sin(yaw) * this.speed,
       0,
-      -Math.cos(yaw) * speed
+      -Math.cos(yaw) * this.speed
     );
 
     // Throttle with smoothing (target = input, actual = smoothed)
-    this.targetThrottle = 0.7;
-    this.actualThrottle = 0.7;
-    this.throttle = 0.7;  // Legacy - kept for compatibility
+    this.targetThrottle = 0.4;
+    this.actualThrottle = 0.4;
+    this.throttle = 0.4;  // Legacy - kept for compatibility
 
     // Smoothed input state for responsive but not twitchy controls
     // Target values come from raw input, actual values are smoothed
@@ -215,6 +222,9 @@ export class Aircraft {
    * @returns {number}
    */
   getSpeed() {
+    if (typeof this.speed === 'number') {
+      return this.speed;
+    }
     return this.velocity.length();
   }
 
@@ -261,12 +271,19 @@ export class Aircraft {
     // Calculate yaw (Y rotation) to face target
     const yaw = Math.atan2(-direction.x, -direction.z);
 
-    // Calculate pitch based on vertical component
+    // Calculate pitch based on vertical component (positive = nose up)
     const horizontalDist = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
     const pitch = Math.atan2(direction.y, horizontalDist);
 
-    // Set rotation (no roll)
-    this.rotation.set(pitch, yaw, 0, 'XYZ');
+    // Set rotation (no roll). Three.js uses positive X = nose down, so invert.
+    this.rotation.set(-pitch, yaw, 0, 'YXZ');
+
+    // Sync arcade state
+    this.pitch = pitch;
+    this.roll = 0;
+    this.yaw = yaw;
+    this.speed = speed;
+    this.verticalSpeed = 0;
 
     // Set velocity in forward direction
     this.velocity.copy(direction).multiplyScalar(speed);

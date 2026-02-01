@@ -36,6 +36,22 @@ export class HUD {
     this.scoreDisplay.textContent = 'Score: 0';
     container.appendChild(this.scoreDisplay);
 
+    // Flight debug stats (hidden by default)
+    this.flightStats = document.createElement('div');
+    this.flightStats.id = 'hud-flight-stats';
+    this.flightStats.style.cssText = `
+      position: absolute;
+      top: 100px;
+      left: 10px;
+      color: rgba(255,255,255,0.8);
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+      display: none;
+    `;
+    container.appendChild(this.flightStats);
+
     // Create connection status element (top-right corner)
     this.connectionStatus = document.createElement('div');
     this.connectionStatus.id = 'hud-connection';
@@ -285,6 +301,31 @@ export class HUD {
     // Altitude: meters (rounded)
     const alt = Math.round(altitude);
     this.altitudeEl.textContent = `${alt}m`;
+  }
+
+  /**
+   * Update optional flight debug stats
+   * @param {Aircraft} aircraft
+   * @param {boolean} enabled
+   */
+  updateFlightStats(aircraft, enabled) {
+    if (!this.flightStats) return;
+    if (!enabled) {
+      this.flightStats.style.display = 'none';
+      return;
+    }
+
+    const pitchDeg = Math.round((aircraft.pitch ?? 0) * (180 / Math.PI));
+    const rollDeg = Math.round((aircraft.roll ?? 0) * (180 / Math.PI));
+    const yawDeg = Math.round((aircraft.yaw ?? 0) * (180 / Math.PI));
+    const verticalSpeed = Math.round((aircraft.verticalSpeed ?? 0) * 10) / 10;
+
+    this.flightStats.style.display = 'block';
+    this.flightStats.textContent =
+      `Pitch: ${pitchDeg}°\n` +
+      `Roll:  ${rollDeg}°\n` +
+      `Yaw:   ${yawDeg}°\n` +
+      `V/S:   ${verticalSpeed} m/s`;
   }
 
   /**

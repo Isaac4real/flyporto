@@ -227,6 +227,8 @@ export class NetworkManager {
         y: aircraft.velocity.y,
         z: aircraft.velocity.z
       },
+      speed: aircraft.getSpeed?.() ?? aircraft.speed ?? 0,
+      verticalSpeed: aircraft.verticalSpeed ?? 0,
       throttle: aircraft.throttle,
       timestamp: Date.now()
     });

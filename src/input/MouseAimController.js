@@ -54,9 +54,8 @@ export class MouseAimController {
 
     // Calculate raw control outputs
     // Pitch: Direct proportional control
-    // Negative aim pitch (pointing down) = positive pitch input (dive)
-    // The sign depends on the coordinate system - adjust as needed
-    this.rawPitch = -effectivePitch * this.pitchGain;
+    // Positive aim pitch (pointing up) = positive pitch input (nose up)
+    this.rawPitch = effectivePitch * this.pitchGain;
 
     // Roll: Bank toward the aim direction
     // Positive aim yaw (pointing right) = negative roll input (bank right)

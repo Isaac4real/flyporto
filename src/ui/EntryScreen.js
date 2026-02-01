@@ -80,6 +80,7 @@ export class EntryScreen {
 
         <div class="controls-hint">
           <p><strong>WASD</strong> - Pitch &amp; Roll &bull; <strong>Up/Down</strong> - Throttle &bull; <strong>Space</strong> - Fire</p>
+          <p class="tile-hint">Tiles stream in HD as you fly - new areas may take a moment to sharpen</p>
         </div>
       </div>
     `;
@@ -425,6 +426,16 @@ export class EntryScreen {
 
       .controls-hint strong {
         color: rgba(255, 255, 255, 0.7);
+      }
+
+      .tile-hint {
+        margin-top: 10px;
+        padding: 8px 12px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        border-left: 2px solid rgba(168, 237, 234, 0.5);
       }
 
       /* Mobile adjustments */

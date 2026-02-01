@@ -31,9 +31,12 @@ export class KeyboardInput {
     // Bind handlers to preserve 'this' context
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.handleKeyUp = this.handleKeyUp.bind(this);
+    this.handleBlur = this.handleBlur.bind(this);
 
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
+    window.addEventListener('blur', this.handleBlur);
+    document.addEventListener('visibilitychange', this.handleBlur);
   }
 
   handleKeyDown(event) {
@@ -46,6 +49,11 @@ export class KeyboardInput {
 
   handleKeyUp(event) {
     this.pressedKeys.delete(event.code);
+  }
+
+  handleBlur() {
+    // Clear stuck keys when focus is lost or tab is hidden
+    this.pressedKeys.clear();
   }
 
   /**
@@ -77,5 +85,7 @@ export class KeyboardInput {
   destroy() {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
+    window.removeEventListener('blur', this.handleBlur);
+    document.removeEventListener('visibilitychange', this.handleBlur);
   }
 }

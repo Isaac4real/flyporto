@@ -235,7 +235,7 @@ modelsLoadPromise.then(() => {
 });
 
 const preloader = new TilePreloader(tilesRenderer, {
-  minLoadTime: 10000,   // Minimum 10 seconds to load high-res tiles
+  minLoadTime: 4000,    // Minimum 4 seconds to load tiles
   minTiles: 15,         // Wait for at least 15 tiles
   maxWaitTime: 60000    // Force ready after 60 seconds max
 });
@@ -423,6 +423,9 @@ function startGame(playerName, planeType, planeColor) {
 
   // Leaderboard update throttling
   let lastLeaderboardUpdate = 0;
+  const fixedStep = CONFIG.physics?.fixedStep ?? (1 / 60);
+  const maxSubSteps = CONFIG.physics?.maxSubSteps ?? 5;
+  let physicsAccumulator = 0;
 
   // Main update callback
   function update(deltaTime) {
@@ -430,8 +433,18 @@ function startGame(playerName, planeType, planeColor) {
     inputHandler.update(deltaTime);
     const input = inputHandler.getState();
 
-    // 2. Update local physics
-    updatePhysics(aircraft, input, deltaTime);
+    // 2. Fixed timestep physics update
+    physicsAccumulator += deltaTime;
+    let subSteps = 0;
+    while (physicsAccumulator >= fixedStep && subSteps < maxSubSteps) {
+      updatePhysics(aircraft, input, fixedStep);
+      physicsAccumulator -= fixedStep;
+      subSteps += 1;
+    }
+    if (subSteps === maxSubSteps) {
+      // Prevent spiral of death by dropping leftover time
+      physicsAccumulator = 0;
+    }
 
     // 3. Check for firing (after input update)
     if (inputHandler.isFiring()) {
@@ -453,6 +466,7 @@ function startGame(playerName, planeType, planeColor) {
     // 8. Update HUD
     hud.update(aircraft.getSpeed(), aircraft.getAltitude());
     hud.updateCrosshair(camera, aircraft, THREE);
+    hud.updateFlightStats(aircraft, CONFIG.debug.showFlightStats);
 
     // 9. Update leaderboard periodically (every 500ms, not every frame)
     const now = performance.now();

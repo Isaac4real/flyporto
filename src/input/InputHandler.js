@@ -3,11 +3,13 @@
  * Combines inputs from all sources into standard format for the physics engine.
  */
 
+import { CONFIG } from '../config.js';
+
 export class InputHandler {
   constructor(keyboardInput, touchInput = null) {
     this.keyboard = keyboardInput;
     this.touch = touchInput;
-    this.throttle = 0.7;  // Track throttle internally (0-1 range) - start high
+    this.throttle = 0.4;  // Track throttle internally (0-1 range)
 
     // Fire state tracking
     this.firePressed = false;
@@ -20,11 +22,15 @@ export class InputHandler {
    */
   update(deltaTime) {
     // Update keyboard throttle
-    if (this.keyboard.isActionActive('throttleUp')) {
-      this.throttle = Math.min(1, this.throttle + deltaTime);
+    const throttleRate = CONFIG.physics?.throttleChangeRate ?? 1.0;
+    const throttleUp = this.keyboard.isActionActive('throttleUp');
+    const throttleDown = this.keyboard.isActionActive('throttleDown');
+
+    if (throttleUp && !throttleDown) {
+      this.throttle = Math.min(1, this.throttle + deltaTime * throttleRate);
     }
-    if (this.keyboard.isActionActive('throttleDown')) {
-      this.throttle = Math.max(0, this.throttle - deltaTime);
+    if (throttleDown && !throttleUp) {
+      this.throttle = Math.max(0, this.throttle - deltaTime * throttleRate);
     }
 
     // Update fire state (keyboard or touch)
@@ -48,21 +54,23 @@ export class InputHandler {
     let pitch = 0;
     let roll = 0;
 
-    // Pitch: In Three.js, positive rotation.x = nose UP
-    // So pitchDown (dive) needs NEGATIVE value, pitchUp (climb) needs POSITIVE
-    if (this.keyboard.isActionActive('pitchDown')) {
+    // Pitch: positive input = nose UP
+    const pitchDown = this.keyboard.isActionActive('pitchDown');
+    const pitchUp = this.keyboard.isActionActive('pitchUp');
+    if (pitchDown && !pitchUp) {
       pitch = -1;  // W = dive = nose down
     }
-    if (this.keyboard.isActionActive('pitchUp')) {
+    if (pitchUp && !pitchDown) {
       pitch = 1;   // S = climb = nose up
     }
 
-    // Roll: In Three.js with -Z forward, positive rotation.z = bank LEFT
-    // So rollLeft needs POSITIVE, rollRight needs NEGATIVE
-    if (this.keyboard.isActionActive('rollLeft')) {
+    // Roll: positive input = bank LEFT
+    const rollLeft = this.keyboard.isActionActive('rollLeft');
+    const rollRight = this.keyboard.isActionActive('rollRight');
+    if (rollLeft && !rollRight) {
       roll = 1;    // A = bank left
     }
-    if (this.keyboard.isActionActive('rollRight')) {
+    if (rollRight && !rollLeft) {
       roll = -1;   // D = bank right
     }
 

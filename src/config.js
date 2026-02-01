@@ -39,31 +39,41 @@ export const CONFIG = {
 
   // Physics constants for arcade flight model
   physics: {
-    maxSpeed: 150,        // Reduced from 200 m/s (~290 knots) - tile streaming can keep up
-    cruiseSpeed: 80,      // Comfortable cruise where tiles load smoothly
-    minSpeed: 25,         // Stall protection - aircraft won't go slower than this
+    maxSpeed: 150,           // m/s (~290 knots) - cap for gameplay + streaming
+    cruiseSpeed: 80,         // m/s - comfortable cruise for tiles
+    minSpeed: 0,             // m/s - allow full stop on runway
+    takeoffSpeed: 25,        // m/s - lift/pitch authority below this is limited
+    startSpeed: 60,          // m/s - initial spawn speed
 
-    throttleAccel: 50,    // Increased for more climb power
-    drag: 0.007,          // Natural deceleration
-    gravity: 9.81,        // m/s²
-    liftFactor: 0.5,      // Increased lift for easier climbing
-    minAltitude: 10,      // meters - forgiving ground collision
+    throttleAccel: 25,       // m/s² at full throttle
+    throttleChangeRate: 3.0, // Throttle change per second from key input
+    drag: 0.06,              // Proportional speed decay per second
+    gravityFactor: 9.81,     // m/s² applied as downward velocity change
+    liftFactor: 0.12,        // Lift scalar (speed * liftFactor ~= gravity at cruise)
+    minAltitude: 10,         // meters - forgiving ground collision
 
-    // Base rotation rates - aggressive for responsive arcade feel
-    turnRate: 2.5,        // rad/s at max bank (coordinated turn)
-    pitchRate: 2.0,       // rad/s at max pitch input
-    rollRate: 3.5,        // rad/s at max roll input
+    // Rotation rates (arcade feel)
+    turnRate: 2.4,           // rad/s at max bank (coordinated turn)
+    pitchRate: 1.6,          // rad/s at max pitch input
+    rollRate: 2.8,           // rad/s at max roll input
+    maxPitch: 0.6,           // radians (~34°)
+    maxRoll: 1.2,            // radians (~69°)
+    rollRecoveryRate: 3.0,   // How fast roll returns to level when no input
 
     // Input smoothing rates (higher = faster response, lower = smoother)
-    inputSmoothRate: 15.0,    // Near-instant response (was 6.0)
-    autoLevelRate: 3.0,       // How fast aircraft levels when no input
-    throttleSmoothRate: 4.0,  // How fast throttle responds
+    inputSmoothRate: 12.0,   // Smooth but responsive
+    autoLevelRate: 3.0,      // Reserved for future auto-leveling
+    throttleSmoothRate: 4.0, // How fast throttle responds
 
     // Response curve (reduces sensitivity near center for precision)
-    inputCurvePower: 0.15,    // Nearly linear for direct control feel (was 0.4)
+    inputCurvePower: 0.15,   // Nearly linear for direct control feel
 
     // Speed-dependent control authority
-    minSpeedFactor: 0.7       // Minimum control authority at low speeds (70%)
+    minSpeedFactor: 0.7,     // Minimum control authority at low speeds (70%)
+
+    // Fixed timestep settings (physics determinism)
+    fixedStep: 1 / 60,
+    maxSubSteps: 5
   },
 
   // Aircraft visual settings
@@ -140,7 +150,8 @@ export const CONFIG = {
   // Debug settings
   debug: {
     showHitboxes: false,      // Set to true to see hitbox wireframes
-    showTileStats: false      // Set to true to see tile loading stats
+    showTileStats: false,     // Set to true to see tile loading stats
+    showFlightStats: false    // Set to true to see pitch/roll/vertical speed
   },
 
   // Share settings (for social sharing)
