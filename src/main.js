@@ -421,27 +421,39 @@ function startGame(playerName, planeType, planeColor) {
 
   /**
    * Helper: Teleport player to race starting position
+   * Positions player 400m before checkpoint 1, aligned to fly toward checkpoint 2
    */
   function teleportToRaceStart() {
     const firstCheckpoint = checkpointManager.checkpoints[0];
+    const secondCheckpoint = checkpointManager.checkpoints[1];
     if (!firstCheckpoint) return;
 
-    const checkpointPos = firstCheckpoint.trigger.position;
-
-    // Calculate starting position: 400m before checkpoint
-    // Direction from origin toward checkpoint
-    const dirToCheckpoint = checkpointPos.clone().normalize();
+    const cp1Pos = firstCheckpoint.trigger.position;
     const distFromCheckpoint = 400;
 
-    // Start position is checkpoint minus offset in its direction from origin
-    const startPos = checkpointPos.clone().sub(
-      dirToCheckpoint.multiplyScalar(distFromCheckpoint)
-    );
-    // Ensure reasonable altitude (at least checkpoint altitude, max 500m)
-    startPos.y = Math.max(checkpointPos.y, Math.min(checkpointPos.y + 100, 500));
+    let approachDir;
 
-    // Teleport aircraft to start position, facing checkpoint
-    aircraft.teleportTo(startPos, checkpointPos, 80);
+    if (secondCheckpoint) {
+      // Calculate direction from checkpoint 1 toward checkpoint 2
+      const cp2Pos = secondCheckpoint.trigger.position;
+      approachDir = new THREE.Vector3().subVectors(cp2Pos, cp1Pos).normalize();
+    } else {
+      // Single checkpoint race: approach from a default direction (from south)
+      approachDir = new THREE.Vector3(0, 0, -1);
+    }
+
+    // Start position: 400m BEFORE checkpoint 1 (opposite of approach direction)
+    const startPos = cp1Pos.clone().sub(
+      approachDir.clone().multiplyScalar(distFromCheckpoint)
+    );
+
+    // Ensure reasonable altitude
+    startPos.y = Math.max(cp1Pos.y, Math.min(cp1Pos.y + 100, 500));
+
+    // Teleport aircraft to start position, facing checkpoint 1
+    aircraft.teleportTo(startPos, cp1Pos, 80);
+
+    console.log(`[Race] Teleported to start: (${startPos.x.toFixed(0)}, ${startPos.y.toFixed(0)}, ${startPos.z.toFixed(0)})`);
   }
 
   /**
