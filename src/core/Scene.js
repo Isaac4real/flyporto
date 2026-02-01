@@ -14,7 +14,9 @@ export function createScene() {
 
   // Distance fog - fades to sky color to hide unloaded tiles
   // Near: start fade at 4000m, Far: fully fogged at 10000m
-  scene.fog = new THREE.Fog(skyColor, 4000, 10000);
+  if (CONFIG.fog?.enabled) {
+    scene.fog = new THREE.Fog(skyColor, 4000, 10000);
+  }
 
   return scene;
 }

@@ -129,7 +129,7 @@ export const CONFIG = {
   // Dynamic fog (Stage 18)
   // Hides unloaded tiles at the horizon
   fog: {
-    enabled: true,
+    enabled: false,
     baseFogNear: 4000,          // Start fog at 4km when slow
     baseFogFar: 10000,          // Full fog at 10km when slow
     minFogNear: 1500,           // Closest fog starts (when fast)
