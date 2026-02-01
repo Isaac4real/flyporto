@@ -133,70 +133,70 @@ function createFallbackDemoAircraft() {
 const demoAircraft = createDemoAircraft();
 scene.add(demoAircraft);
 
-const demoPath = {
-  // Tight circular path around Golden Gate area (stays near tile loading zone)
-  radiusX: 400,        // X axis radius (tighter)
-  radiusZ: 400,        // Z axis radius (circular)
-  height: 350,         // Flying altitude (lower for better tile views)
-  speed: 0.0003,       // Path speed (slower, more cinematic)
+// ============================================================================
+// CINEMATIC APPROACH - Slow pan toward Golden Gate Bridge
+// Tiles load to high quality since camera direction stays consistent
+// ============================================================================
+const cinematicPath = {
+  // Start position: far from bridge, approaching from the ocean side
+  startPos: new THREE.Vector3(800, 400, 1200),
+  // End position: close to bridge
+  endPos: new THREE.Vector3(-200, 350, -400),
+  // Duration: 60 seconds for full journey (but user will likely start before)
+  duration: 60000,
   startTime: performance.now()
 };
 
-// ============================================================================
-// CINEMATIC CAMERA - Follow the demo aircraft
-// ============================================================================
+// Camera follows behind and above the aircraft
 const cinematicCamera = {
-  followDistance: 100,   // meters behind (closer)
-  followHeight: 30,      // meters above
-  smoothing: 0.05        // camera smoothing factor (smoother)
+  followDistance: 120,
+  followHeight: 35,
+  lookAheadDistance: 200
 };
 
-let cameraTargetPos = new THREE.Vector3();
-let cameraTargetLook = new THREE.Vector3();
-
-// Start tiles loading immediately with cinematic camera following demo aircraft
+// Start tiles loading with slow cinematic approach
 let preloadAnimationId = null;
 function preloadUpdate() {
-  const elapsed = performance.now() - demoPath.startTime;
-  const t = elapsed * demoPath.speed;
+  const elapsed = performance.now() - cinematicPath.startTime;
+  // Progress from 0 to 1, clamped
+  const progress = Math.min(1, elapsed / cinematicPath.duration);
 
-  // Figure-8 path (lemniscate)
-  const scale = 1 / (1 + Math.sin(t) * Math.sin(t) * 0.3);
-  const x = demoPath.radiusX * Math.sin(t) * scale;
-  const z = demoPath.radiusZ * Math.sin(t) * Math.cos(t) * scale;
-  const y = demoPath.height + Math.sin(t * 2) * 50; // Gentle altitude variation
+  // Smooth easing for natural motion (ease-out)
+  const eased = 1 - Math.pow(1 - progress, 2);
+
+  // Interpolate position along path
+  const x = cinematicPath.startPos.x + (cinematicPath.endPos.x - cinematicPath.startPos.x) * eased;
+  const y = cinematicPath.startPos.y + (cinematicPath.endPos.y - cinematicPath.startPos.y) * eased;
+  const z = cinematicPath.startPos.z + (cinematicPath.endPos.z - cinematicPath.startPos.z) * eased;
 
   // Position demo aircraft
   demoAircraft.position.set(x, y, z);
 
-  // Calculate velocity direction for aircraft orientation
-  const nextT = t + 0.01;
-  const nextScale = 1 / (1 + Math.sin(nextT) * Math.sin(nextT) * 0.3);
-  const nextX = demoPath.radiusX * Math.sin(nextT) * nextScale;
-  const nextZ = demoPath.radiusZ * Math.sin(nextT) * Math.cos(nextT) * nextScale;
-  const nextY = demoPath.height + Math.sin(nextT * 2) * 50;
+  // Calculate flight direction (toward end point)
+  const direction = new THREE.Vector3()
+    .subVectors(cinematicPath.endPos, cinematicPath.startPos)
+    .normalize();
 
-  const velocity = new THREE.Vector3(nextX - x, nextY - y, nextZ - z).normalize();
+  // Orient aircraft to face flight direction
+  const yaw = Math.atan2(-direction.x, -direction.z);
+  const pitch = Math.asin(direction.y) * 0.3; // Subtle pitch
+  demoAircraft.rotation.set(pitch, yaw, 0);
 
-  // Orient aircraft to face velocity direction with banking
-  const yaw = Math.atan2(-velocity.x, -velocity.z);
-  const pitch = Math.asin(velocity.y);
-  const bankAngle = (nextX - x) * 0.05; // Bank into turns
-  demoAircraft.rotation.set(pitch, yaw, -bankAngle);
+  // Camera position: behind and above aircraft
+  const cameraPos = new THREE.Vector3(
+    x - direction.x * cinematicCamera.followDistance,
+    y + cinematicCamera.followHeight,
+    z - direction.z * cinematicCamera.followDistance
+  );
+  camera.position.copy(cameraPos);
 
-  // Calculate camera position (behind and above aircraft)
-  const behind = velocity.clone().multiplyScalar(-cinematicCamera.followDistance);
-  const targetCamPos = demoAircraft.position.clone().add(behind);
-  targetCamPos.y += cinematicCamera.followHeight;
-
-  // Smooth camera movement
-  cameraTargetPos.lerp(targetCamPos, cinematicCamera.smoothing);
-  camera.position.copy(cameraTargetPos);
-
-  // Look at aircraft (slightly ahead)
-  const lookAhead = demoAircraft.position.clone().add(velocity.clone().multiplyScalar(50));
-  cameraTargetLook.lerp(lookAhead, cinematicCamera.smoothing);
-  camera.lookAt(cameraTargetLook);
+  // Look ahead of aircraft toward the bridge
+  const lookTarget = new THREE.Vector3(
+    x + direction.x * cinematicCamera.lookAheadDistance,
+    y - 20, // Look slightly down toward the ground/bridge
+    z + direction.z * cinematicCamera.lookAheadDistance
+  );
+  camera.lookAt(lookTarget);
 
   camera.updateMatrixWorld();
   tilesRenderer.update();
@@ -204,11 +204,9 @@ function preloadUpdate() {
   preloadAnimationId = requestAnimationFrame(preloadUpdate);
 }
 
-// Initialize camera position before starting
-cameraTargetPos.set(0, demoPath.height + cinematicCamera.followHeight, cinematicCamera.followDistance);
-cameraTargetLook.set(0, demoPath.height, 0);
-camera.position.copy(cameraTargetPos);
-camera.lookAt(cameraTargetLook);
+// Initialize camera
+camera.position.copy(cinematicPath.startPos);
+camera.lookAt(cinematicPath.endPos);
 
 preloadUpdate();
 
