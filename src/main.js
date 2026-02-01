@@ -270,7 +270,8 @@ function startGame(playerName, planeType, planeColor) {
 
   // Create aircraft at starting position with chosen plane type and color
   const startPosition = new THREE.Vector3(0, CONFIG.startPosition.altitude, 0);
-  const aircraft = new Aircraft(startPosition, planeColor, planeType);
+  const initialHeading = CONFIG.startPosition.heading || 0;
+  const aircraft = new Aircraft(startPosition, planeColor, planeType, initialHeading);
   scene.add(aircraft.mesh);
 
   // Initialize input system

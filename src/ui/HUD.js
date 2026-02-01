@@ -12,7 +12,7 @@ export class HUD {
     this.element.innerHTML = `
       <div id="hud-speed">0 kts</div>
       <div id="hud-altitude">0m</div>
-      <div id="hud-hints">Click to aim with mouse | WASD to fly | Space/F/Click to fire</div>
+      <div id="hud-hints">WASD: Pitch & Roll | Up/Down Arrows: Throttle | Space: Fire</div>
     `;
     container.appendChild(this.element);
 

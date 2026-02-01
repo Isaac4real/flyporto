@@ -36,17 +36,28 @@ export class Aircraft {
    * @param {THREE.Vector3} initialPosition - Starting position in world coordinates
    * @param {string} planeColor - Color of plane ('red', 'blue', 'green', etc.)
    * @param {string} planeType - Type of plane ('f16', 'f22', 'f18', 'cessna')
+   * @param {number} initialHeading - Initial heading in degrees (0 = north, 90 = east)
    */
-  constructor(initialPosition, planeColor = 'red', planeType = 'f16') {
+  constructor(initialPosition, planeColor = 'red', planeType = 'f16', initialHeading = 0) {
     // Store plane type and color
     this.planeType = planeType;
     this.planeColor = planeColor;
 
+    // Convert heading to yaw (radians, Three.js convention)
+    // Heading: 0 = north (+Z), 90 = east (-X), 180 = south (-Z), 270 = west (+X)
+    // Three.js: yaw 0 = facing -Z, positive yaw rotates toward -X
+    const yaw = (initialHeading - 180) * Math.PI / 180;
+
     // State
     this.position = initialPosition.clone();
-    this.rotation = new THREE.Euler(0, 0, 0, 'XYZ');
-    // Start with forward velocity - plane should already be flying!
-    this.velocity = new THREE.Vector3(0, 0, -60);  // 60 m/s forward (-Z is forward)
+    this.rotation = new THREE.Euler(0, yaw, 0, 'XYZ');
+    // Start with forward velocity in the heading direction
+    const speed = 60;  // 60 m/s forward
+    this.velocity = new THREE.Vector3(
+      -Math.sin(yaw) * speed,
+      0,
+      -Math.cos(yaw) * speed
+    );
 
     // Throttle with smoothing (target = input, actual = smoothed)
     this.targetThrottle = 0.7;

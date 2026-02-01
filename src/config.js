@@ -2,11 +2,12 @@
  * Configuration constants for SF Flight Simulator
  */
 export const CONFIG = {
-  // Starting position: Golden Gate Bridge
+  // Starting position: ~1.3km northwest of Golden Gate Bridge (facing it)
   startPosition: {
-    lat: 37.8199,
-    lon: -122.4783,
-    altitude: 500  // meters
+    lat: 37.8297,
+    lon: -122.4895,
+    altitude: 400,  // meters
+    heading: 225    // degrees clockwise from north (225 = southwest, toward bridge)
   },
 
   // Camera settings

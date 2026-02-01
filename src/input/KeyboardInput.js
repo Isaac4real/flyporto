@@ -5,19 +5,17 @@
 const KEY_MAPPINGS = {
   // Pitch
   'KeyW': 'pitchDown',
-  'ArrowUp': 'pitchDown',
   'KeyS': 'pitchUp',
-  'ArrowDown': 'pitchUp',
 
   // Roll
   'KeyA': 'rollLeft',
-  'ArrowLeft': 'rollLeft',
   'KeyD': 'rollRight',
-  'ArrowRight': 'rollRight',
 
-  // Throttle
+  // Throttle (arrows, shift, ctrl)
+  'ArrowUp': 'throttleUp',
   'ShiftLeft': 'throttleUp',
   'ShiftRight': 'throttleUp',
+  'ArrowDown': 'throttleDown',
   'ControlLeft': 'throttleDown',
   'ControlRight': 'throttleDown',
 
