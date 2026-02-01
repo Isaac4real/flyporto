@@ -211,6 +211,44 @@ export class Aircraft {
     this.mesh.position.copy(this.position);
     this.mesh.rotation.copy(this.rotation);
   }
+
+  /**
+   * Teleport aircraft to a new position, facing a target
+   * @param {THREE.Vector3} newPosition - Position to teleport to
+   * @param {THREE.Vector3} lookAtTarget - Point to face toward
+   * @param {number} [speed=80] - Initial forward speed in m/s
+   */
+  teleportTo(newPosition, lookAtTarget, speed = 80) {
+    // Set position
+    this.position.copy(newPosition);
+
+    // Calculate direction to target
+    const direction = new THREE.Vector3()
+      .subVectors(lookAtTarget, newPosition)
+      .normalize();
+
+    // Calculate yaw (Y rotation) to face target
+    const yaw = Math.atan2(-direction.x, -direction.z);
+
+    // Calculate pitch based on vertical component
+    const horizontalDist = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
+    const pitch = Math.atan2(direction.y, horizontalDist);
+
+    // Set rotation (no roll)
+    this.rotation.set(pitch, yaw, 0, 'XYZ');
+
+    // Set velocity in forward direction
+    this.velocity.copy(direction).multiplyScalar(speed);
+
+    // Reset control inputs
+    this.targetPitch = 0;
+    this.targetRoll = 0;
+    this.actualPitch = 0;
+    this.actualRoll = 0;
+
+    // Update forward vector and mesh
+    this.updateMatrices();
+  }
 }
 
 // Export PLANE_COLORS for use by RemoteAircraft

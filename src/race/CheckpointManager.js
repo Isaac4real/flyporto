@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TriggerVolume } from './TriggerVolume.js';
+import { CheckpointMarker } from './CheckpointMarker.js';
 import { LANDMARKS, getLandmark } from '../data/landmarks.js';
 import { CONFIG } from '../config.js';
 
@@ -50,6 +51,7 @@ export class CheckpointManager {
     this.checkpoints = [];
     this.currentCheckpointIndex = 0;
     this.raceActive = false;
+    this.raceStarted = false;  // True once player crosses first checkpoint
     this.raceStartTime = 0;
     this.raceEndTime = 0;
     this.checkpointTimes = [];
@@ -115,15 +117,35 @@ export class CheckpointManager {
         trigger.markActive();
       }
 
+      // Create visible marker
+      const marker = new CheckpointMarker({
+        position: localPos,
+        radius: landmark.triggerRadius,
+        type: landmark.triggerType,
+        size: landmark.triggerSize
+      });
+
+      // Set initial state
+      if (index === 0) {
+        marker.setState('active');
+      } else {
+        marker.setState('upcoming');
+      }
+      marker.show();
+
+      // Add marker to scene
+      this.scene.add(marker.getObject());
+
       this.checkpoints.push({
         trigger,
+        marker,
         landmark,
         index,
         reached: false,
         splitTime: 0
       });
 
-      // Add debug mesh to scene
+      // Add debug mesh to scene (optional)
       if (trigger.debugMesh) {
         this.scene.add(trigger.debugMesh);
       }
@@ -142,7 +164,8 @@ export class CheckpointManager {
     }
 
     this.raceActive = true;
-    this.raceStartTime = performance.now();
+    this.raceStarted = false;  // Timer starts when first checkpoint is crossed
+    this.raceStartTime = 0;
     this.currentCheckpointIndex = 0;
     this.checkpointTimes = [];
     this._initialized = false;
@@ -155,6 +178,15 @@ export class CheckpointManager {
       cp.trigger.setEnabled(index === 0);
       if (index === 0) {
         cp.trigger.markActive();
+        if (cp.marker) {
+          cp.marker.setState('active');
+          cp.marker.show();
+        }
+      } else {
+        if (cp.marker) {
+          cp.marker.setState('upcoming');
+          cp.marker.show();
+        }
       }
     });
 
@@ -175,6 +207,40 @@ export class CheckpointManager {
 
     const checkpoint = this.checkpoints[index];
     const currentTime = performance.now();
+
+    // First checkpoint = start gate, begins the timer
+    if (index === 0) {
+      this.raceStarted = true;
+      this.raceStartTime = currentTime;
+      checkpoint.reached = true;
+      checkpoint.splitTime = 0;
+
+      console.log(`[CheckpointManager] Race timer started at ${checkpoint.landmark.shortName}`);
+
+      // Update marker state
+      if (checkpoint.marker) {
+        checkpoint.marker.setState('completed');
+      }
+
+      // Notify callback with 0 split time for start gate
+      if (this.onCheckpointReached) {
+        this.onCheckpointReached(checkpoint, index, 0);
+      }
+
+      // Enable next checkpoint
+      this.currentCheckpointIndex++;
+      const nextCheckpoint = this.checkpoints[this.currentCheckpointIndex];
+      if (nextCheckpoint) {
+        nextCheckpoint.trigger.setEnabled(true);
+        nextCheckpoint.trigger.markActive();
+        if (nextCheckpoint.marker) {
+          nextCheckpoint.marker.setState('active');
+        }
+      }
+      return;
+    }
+
+    // Subsequent checkpoints - calculate split time from race start
     const splitTime = (currentTime - this.raceStartTime) / 1000;  // seconds
 
     checkpoint.reached = true;
@@ -185,6 +251,11 @@ export class CheckpointManager {
       `[CheckpointManager] Checkpoint ${index + 1}/${this.checkpoints.length}: ` +
       `${checkpoint.landmark.shortName} at ${splitTime.toFixed(2)}s`
     );
+
+    // Update marker state
+    if (checkpoint.marker) {
+      checkpoint.marker.setState('completed');
+    }
 
     // Notify callback
     if (this.onCheckpointReached) {
@@ -200,6 +271,11 @@ export class CheckpointManager {
       const nextCheckpoint = this.checkpoints[this.currentCheckpointIndex];
       nextCheckpoint.trigger.setEnabled(true);
       nextCheckpoint.trigger.markActive();
+
+      // Update next marker to active
+      if (nextCheckpoint.marker) {
+        nextCheckpoint.marker.setState('active');
+      }
     }
   }
 
@@ -247,8 +323,9 @@ export class CheckpointManager {
    * Call this every frame with current aircraft position
    *
    * @param {THREE.Vector3} aircraftPos - Current aircraft position
+   * @param {number} [deltaTime=0.016] - Time since last frame
    */
-  update(aircraftPos) {
+  update(aircraftPos, deltaTime = 0.016) {
     if (!this.raceActive) return;
 
     // Initialize previous position on first frame
@@ -268,8 +345,26 @@ export class CheckpointManager {
       );
     }
 
+    // Update marker animations
+    this.checkpoints.forEach(cp => {
+      if (cp.marker) {
+        cp.marker.update(deltaTime);
+      }
+    });
+
     // Update previous position
     this._prevAircraftPos.copy(aircraftPos);
+  }
+
+  /**
+   * Get the current checkpoint's position for direction indicator
+   * @returns {THREE.Vector3|null}
+   */
+  getCurrentCheckpointPosition() {
+    if (!this.raceActive) return null;
+    const currentCheckpoint = this.checkpoints[this.currentCheckpointIndex];
+    if (!currentCheckpoint) return null;
+    return currentCheckpoint.trigger.position;
   }
 
   /**
@@ -280,18 +375,24 @@ export class CheckpointManager {
     if (!this.raceActive) {
       return {
         active: false,
+        started: false,
         routeId: this.routeId,
         routeName: this.routeName,
         totalCheckpoints: this.checkpoints.length
       };
     }
 
-    const currentTime = (performance.now() - this.raceStartTime) / 1000;
+    // Timer only runs after crossing first checkpoint
+    const currentTime = this.raceStarted
+      ? (performance.now() - this.raceStartTime) / 1000
+      : 0;
+
     const currentCheckpoint = this.checkpoints[this.currentCheckpointIndex];
     const nextCheckpoint = this.checkpoints[this.currentCheckpointIndex + 1];
 
     return {
       active: true,
+      started: this.raceStarted,
       routeId: this.routeId,
       routeName: this.routeName,
       currentCheckpoint: this.currentCheckpointIndex + 1,
@@ -347,6 +448,10 @@ export class CheckpointManager {
     this.checkpoints.forEach(cp => {
       cp.trigger.reset();
       cp.trigger.setEnabled(false);
+      // Hide markers when race is cancelled
+      if (cp.marker) {
+        cp.marker.hide();
+      }
     });
   }
 
@@ -359,6 +464,12 @@ export class CheckpointManager {
         this.scene.remove(cp.trigger.debugMesh);
       }
       cp.trigger.dispose();
+
+      // Remove and dispose markers
+      if (cp.marker) {
+        this.scene.remove(cp.marker.getObject());
+        cp.marker.dispose();
+      }
     });
 
     this.checkpoints = [];
@@ -385,6 +496,11 @@ export class CheckpointManager {
       cp.reached = false;
       cp.splitTime = 0;
       cp.trigger.setEnabled(false);
+      // Reset marker states
+      if (cp.marker) {
+        cp.marker.setState('upcoming');
+        cp.marker.hide();
+      }
     });
   }
 

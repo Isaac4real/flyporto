@@ -28,6 +28,7 @@ import { TileLoadingOverlay } from './ui/TileLoadingOverlay.js';
 
 // Stage 19: Landmark checkpoint racing
 import { CheckpointManager } from './race/CheckpointManager.js';
+import { DirectionIndicator } from './race/CheckpointMarker.js';
 import { RaceHUD } from './ui/RaceHUD.js';
 import { RouteSelector } from './ui/RouteSelector.js';
 
@@ -416,13 +417,50 @@ function startGame(playerName, planeType, planeColor) {
 
   const raceHUD = new RaceHUD(container);
   const routeSelector = new RouteSelector(container);
+  const directionIndicator = new DirectionIndicator(container);
+
+  /**
+   * Helper: Teleport player to race starting position
+   */
+  function teleportToRaceStart() {
+    const firstCheckpoint = checkpointManager.checkpoints[0];
+    if (!firstCheckpoint) return;
+
+    const checkpointPos = firstCheckpoint.trigger.position;
+
+    // Calculate starting position: 400m before checkpoint
+    // Direction from origin toward checkpoint
+    const dirToCheckpoint = checkpointPos.clone().normalize();
+    const distFromCheckpoint = 400;
+
+    // Start position is checkpoint minus offset in its direction from origin
+    const startPos = checkpointPos.clone().sub(
+      dirToCheckpoint.multiplyScalar(distFromCheckpoint)
+    );
+    // Ensure reasonable altitude (at least checkpoint altitude, max 500m)
+    startPos.y = Math.max(checkpointPos.y, Math.min(checkpointPos.y + 100, 500));
+
+    // Teleport aircraft to start position, facing checkpoint
+    aircraft.teleportTo(startPos, checkpointPos, 80);
+  }
+
+  /**
+   * Helper: Start or restart a race with full UI setup
+   */
+  function startRaceWithUI() {
+    teleportToRaceStart();
+    checkpointManager.startRace();
+    raceHUD.show(checkpointManager.routeName, checkpointManager.checkpoints.length);
+    raceHUD.updateProgress(0, checkpointManager.checkpoints[0]?.landmark.shortName);
+    directionIndicator.show();
+    // First checkpoint is the start gate - timer starts when you fly through it
+    hud.showNotification(`Fly through ${checkpointManager.checkpoints[0]?.landmark.shortName} to start!`, 4000);
+  }
 
   // Wire up route selection
   routeSelector.onRouteSelected = (route) => {
     checkpointManager.loadRoute(route);
-    checkpointManager.startRace();
-    raceHUD.show(route.name, route.checkpoints.length);
-    raceHUD.updateProgress(0, checkpointManager.checkpoints[0]?.landmark.shortName);
+    startRaceWithUI();
   };
 
   // Wire up checkpoint callbacks
@@ -462,9 +500,7 @@ function startGame(playerName, planeType, planeColor) {
   shareModal.onCopy = async () => await shareManager.copyToClipboard();
   shareModal.onNativeShare = async () => await shareManager.nativeShare();
   shareModal.onPlayAgain = () => {
-    checkpointManager.startRace();
-    raceHUD.show(checkpointManager.routeName, checkpointManager.checkpoints.length);
-    raceHUD.updateProgress(0, checkpointManager.checkpoints[0]?.landmark.shortName);
+    startRaceWithUI();
   };
   shareModal.onClose = () => {
     // Continue flying without race
@@ -472,6 +508,9 @@ function startGame(playerName, planeType, planeColor) {
 
   // Wire up race completion -> share flow
   checkpointManager.onRaceComplete = async (result) => {
+    // Hide direction indicator
+    directionIndicator.hide();
+
     // Hide race HUD, show completion
     raceHUD.showRaceComplete(result);
 
@@ -509,26 +548,35 @@ function startGame(playerName, planeType, planeColor) {
   };
 
   raceHUD.onRetryClick = () => {
-    checkpointManager.startRace();
-    raceHUD.show(checkpointManager.routeName, checkpointManager.checkpoints.length);
-    raceHUD.updateProgress(0, checkpointManager.checkpoints[0]?.landmark.shortName);
+    startRaceWithUI();
   };
 
-  // Add keyboard shortcut for route selector (R key)
+  // Add keyboard shortcuts for race system
   document.addEventListener('keydown', (e) => {
-    // Only handle R if not typing in an input
+    // Only handle if not typing in an input
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
+    // R key - Open route selector
     if (e.key === 'r' || e.key === 'R') {
       // Don't open if race is active or modals are open
       if (checkpointManager.isRaceActive()) {
-        hud.showNotification('Finish or cancel race first');
+        hud.showNotification('Press ESC to cancel race', 2000);
         return;
       }
       if (raceHUD.isShowingComplete() || shareModal.isVisible()) {
         return;
       }
       routeSelector.toggle();
+    }
+
+    // ESC key - Cancel active race (but not if modals are open - they handle ESC themselves)
+    if (e.key === 'Escape') {
+      if (checkpointManager.isRaceActive() && !raceHUD.isShowingComplete() && !shareModal.isVisible() && !routeSelector.isVisible()) {
+        checkpointManager.cancelRace();
+        raceHUD.hide();
+        directionIndicator.hide();
+        hud.showNotification('Race cancelled', 2000);
+      }
     }
   });
 
@@ -559,11 +607,11 @@ function startGame(playerName, planeType, planeColor) {
 
     // 6.5. Update checkpoint racing (Stage 19)
     if (checkpointManager.isRaceActive()) {
-      checkpointManager.update(aircraft.position);
+      checkpointManager.update(aircraft.position, deltaTime);
 
       // Update race HUD timer and distance
       const raceState = checkpointManager.getRaceState();
-      raceHUD.updateTimer(raceState.currentTime);
+      raceHUD.updateTimer(raceState.currentTime, raceState.started);
 
       const distance = checkpointManager.getDistanceToCheckpoint(aircraft.position);
       if (distance !== null) {
@@ -572,6 +620,12 @@ function startGame(playerName, planeType, planeColor) {
           raceState.nextCheckpointName,
           distance
         );
+      }
+
+      // Update direction indicator pointing to next checkpoint
+      const targetPos = checkpointManager.getCurrentCheckpointPosition();
+      if (targetPos) {
+        directionIndicator.update(camera, targetPos, aircraft.position);
       }
     }
 

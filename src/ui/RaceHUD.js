@@ -85,6 +85,23 @@ export class RaceHUD {
         ">
           <span class="distance-value">--</span>
         </div>
+
+        <div class="race-hint" style="
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.3);
+          margin-top: 16px;
+          text-align: center;
+        ">
+          <kbd style="
+            display: inline-block;
+            padding: 2px 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 10px;
+          ">ESC</kbd> to cancel
+        </div>
       </div>
     `;
 
@@ -181,8 +198,18 @@ export class RaceHUD {
   /**
    * Update timer display
    * @param {number} timeSeconds - Elapsed time in seconds
+   * @param {boolean} [started=true] - Whether the race timer has started
    */
-  updateTimer(timeSeconds) {
+  updateTimer(timeSeconds, started = true) {
+    if (!started) {
+      // Show "GO!" before timer starts
+      this.timerEl.textContent = 'GO!';
+      this.timerEl.style.color = '#fbbf24';  // Yellow/gold
+      return;
+    }
+
+    // Timer is running
+    this.timerEl.style.color = '#00ff88';  // Green
     const minutes = Math.floor(timeSeconds / 60);
     const seconds = Math.floor(timeSeconds % 60);
     const centiseconds = Math.floor((timeSeconds % 1) * 100);
