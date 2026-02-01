@@ -138,17 +138,16 @@ function applyRotation(aircraft, input, deltaTime, speed) {
   aircraft.actualPitch = smoothDamp(aircraft.actualPitch, aircraft.targetPitch, inputSmoothRate, deltaTime);
   aircraft.actualRoll = smoothDamp(aircraft.actualRoll, aircraft.targetRoll, inputSmoothRate, deltaTime);
 
-  const pitchRate = (PHYSICS.pitchRate ?? 1.6) * speedAuthority;
+  const pitchAuthority = Math.max(0.2, Math.min(1.0, speed / cruiseSpeed));
+  const pitchRate = (PHYSICS.pitchRate ?? 1.6) * pitchAuthority;
   const rollRate = (PHYSICS.rollRate ?? 2.8) * speedAuthority;
   const maxPitch = PHYSICS.maxPitch ?? 0.6;
   const maxRoll = PHYSICS.maxRoll ?? 1.2;
   const rollRecoveryRate = PHYSICS.rollRecoveryRate ?? 3.0;
 
-  // Pitch (positive = nose up). Only allow when above takeoff speed.
-  if (speed >= takeoffSpeed) {
-    aircraft.pitch += aircraft.actualPitch * pitchRate * deltaTime;
-    aircraft.pitch = Math.max(-maxPitch, Math.min(maxPitch, aircraft.pitch));
-  }
+  // Pitch (positive = nose up). Always respond, weaker at low speed.
+  aircraft.pitch += aircraft.actualPitch * pitchRate * deltaTime;
+  aircraft.pitch = Math.max(-maxPitch, Math.min(maxPitch, aircraft.pitch));
 
   // Roll (bank)
   aircraft.roll += aircraft.actualRoll * rollRate * deltaTime;

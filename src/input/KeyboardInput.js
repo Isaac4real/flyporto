@@ -3,21 +3,21 @@
  */
 
 const KEY_MAPPINGS = {
-  // Pitch
-  'KeyW': 'pitchDown',
-  'KeyS': 'pitchUp',
+  // Throttle
+  'KeyW': 'throttleUp',
+  'KeyS': 'throttleDown',
 
-  // Roll
-  'KeyA': 'rollLeft',
-  'KeyD': 'rollRight',
+  // Rudder (yaw)
+  'KeyA': 'yawLeft',
+  'KeyD': 'yawRight',
 
-  // Throttle (arrows, shift, ctrl)
-  'ArrowUp': 'throttleUp',
-  'ShiftLeft': 'throttleUp',
-  'ShiftRight': 'throttleUp',
-  'ArrowDown': 'throttleDown',
-  'ControlLeft': 'throttleDown',
-  'ControlRight': 'throttleDown',
+  // Roll (turn)
+  'ArrowLeft': 'rollLeft',
+  'ArrowRight': 'rollRight',
+
+  // Pitch (inverted)
+  'ArrowUp': 'pitchDown',
+  'ArrowDown': 'pitchUp',
 
   // Combat
   'Space': 'fire',

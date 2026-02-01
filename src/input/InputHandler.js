@@ -58,10 +58,10 @@ export class InputHandler {
     const pitchDown = this.keyboard.isActionActive('pitchDown');
     const pitchUp = this.keyboard.isActionActive('pitchUp');
     if (pitchDown && !pitchUp) {
-      pitch = -1;  // W = dive = nose down
+      pitch = 1;  // ArrowUp = nose down (invert)
     }
     if (pitchUp && !pitchDown) {
-      pitch = 1;   // S = climb = nose up
+      pitch = -1;   // ArrowDown = nose up (invert)
     }
 
     // Roll: positive input = bank LEFT
@@ -72,6 +72,17 @@ export class InputHandler {
     }
     if (rollRight && !rollLeft) {
       roll = -1;   // D = bank right
+    }
+
+    // Yaw: positive input = yaw LEFT
+    let yaw = 0;
+    const yawLeft = this.keyboard.isActionActive('yawLeft');
+    const yawRight = this.keyboard.isActionActive('yawRight');
+    if (yawLeft && !yawRight) {
+      yaw = 1;
+    }
+    if (yawRight && !yawLeft) {
+      yaw = -1;
     }
 
     // Get throttle value
@@ -94,7 +105,7 @@ export class InputHandler {
     return {
       pitch,
       roll,
-      yaw: 0,  // No direct yaw control (comes from banking)
+      yaw,
       throttle,  // Absolute value (0-1)
       autoLevel: false
     };

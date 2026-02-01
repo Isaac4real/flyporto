@@ -25,6 +25,30 @@ import { PredictiveLoader } from './core/PredictiveLoader.js';
 import { FogManager } from './core/FogManager.js';
 import { TileLoadingOverlay } from './ui/TileLoadingOverlay.js';
 
+function createRateLimitBanner() {
+  const banner = document.createElement('div');
+  banner.id = 'rate-limit-banner';
+  banner.textContent = 'Sorry — Google is rate limiting me. Tiles might not load in HD. I’m working on it now.';
+  banner.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    text-align: center;
+    background: rgba(153, 27, 27, 0.92);
+    color: #fff4f4;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    z-index: 20000;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  `;
+
+  document.body.appendChild(banner);
+}
+
 // ============================================================================
 // PHASE 1: Initialize rendering (runs in background while entry screen shows)
 // ============================================================================
@@ -35,6 +59,7 @@ const renderer = createRenderer();
 
 // Add renderer to DOM
 document.getElementById('container').appendChild(renderer.domElement);
+createRateLimitBanner();
 
 // Setup lighting
 setupLighting(scene);

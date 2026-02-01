@@ -79,7 +79,7 @@ export class EntryScreen {
         </button>
 
         <div class="controls-hint">
-          <p><strong>WASD</strong> - Pitch &amp; Roll &bull; <strong>Up/Down</strong> - Throttle &bull; <strong>Space</strong> - Fire</p>
+          <p><strong>W/S</strong> - Throttle &bull; <strong>A/D</strong> - Rudder &bull; <strong>Arrows</strong> - Roll + Pitch &bull; <strong>Space</strong> - Fire</p>
           <p class="tile-hint">Tiles stream in HD as you fly - new areas may take a moment to sharpen</p>
         </div>
       </div>
