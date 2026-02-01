@@ -21,7 +21,10 @@ const KEY_MAPPINGS = {
 
   // Combat
   'Space': 'fire',
-  'KeyF': 'fire'
+  'KeyF': 'fire',
+
+  // Camera
+  'KeyV': 'viewToggle'
 };
 
 export class KeyboardInput {
@@ -40,6 +43,10 @@ export class KeyboardInput {
   }
 
   handleKeyDown(event) {
+    if (KeyboardInput.shouldIgnoreEventTarget(event.target)) {
+      return;
+    }
+
     // Prevent default for game keys (avoid scrolling, browser shortcuts)
     if (KEY_MAPPINGS[event.code]) {
       event.preventDefault();
@@ -48,12 +55,22 @@ export class KeyboardInput {
   }
 
   handleKeyUp(event) {
+    if (KeyboardInput.shouldIgnoreEventTarget(event.target)) {
+      return;
+    }
+
     this.pressedKeys.delete(event.code);
   }
 
   handleBlur() {
     // Clear stuck keys when focus is lost or tab is hidden
     this.pressedKeys.clear();
+  }
+
+  static shouldIgnoreEventTarget(target) {
+    if (!target) return false;
+    const tagName = target.tagName?.toLowerCase();
+    return tagName === 'input' || tagName === 'textarea' || target.isContentEditable;
   }
 
   /**

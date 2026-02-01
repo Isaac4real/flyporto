@@ -20,7 +20,14 @@ export const CONFIG = {
       height: 40,      // meters above aircraft
       damping: 2.0,    // smoothing factor (higher = faster follow)
       lookAhead: 120   // meters ahead to look at
-    }
+    },
+    cockpit: {
+      fov: 75,
+      lookAhead: 500,
+      seatOffset: { forward: 2.6, up: 0.35, right: 0 },
+      offsetScale: { x: 0, y: 0.12, z: -0.7 }
+    },
+    fovDamping: 10
   },
 
   // 3D Tiles renderer settings - OPTIMIZED for Stage 16 + Stage 18

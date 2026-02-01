@@ -18,6 +18,7 @@ import { Leaderboard } from './combat/Leaderboard.js';
 import { EntryScreen } from './ui/EntryScreen.js';
 import { TilePreloader } from './core/TilePreloader.js';
 import { ModelManager } from './core/ModelManager.js';
+import { CockpitOverlay } from './ui/CockpitOverlay.js';
 
 // Stage 18: Tile streaming performance systems
 import { AdaptiveQuality } from './core/AdaptiveQuality.js';
@@ -342,6 +343,7 @@ function startGame(playerName, planeType, planeColor) {
 
   // Create HUD
   const hud = new HUD(container);
+  const cockpitOverlay = new CockpitOverlay(container);
 
   // ====== STAGE 18: Tile Streaming Performance Systems ======
 
@@ -459,6 +461,7 @@ function startGame(playerName, planeType, planeColor) {
   const fixedStep = CONFIG.physics?.fixedStep ?? (1 / 60);
   const maxSubSteps = CONFIG.physics?.maxSubSteps ?? 5;
   let physicsAccumulator = 0;
+  let viewTogglePressed = false;
 
   // Main update callback
   function update(deltaTime) {
@@ -493,11 +496,22 @@ function startGame(playerName, planeType, planeColor) {
     // 6. Update combat effects
     combatManager.update(deltaTime);
 
+    // 6.5 Toggle cockpit view
+    const viewToggleActive = keyboardInput.isActionActive('viewToggle');
+    if (viewToggleActive && !viewTogglePressed) {
+      cameraController.toggleMode();
+    }
+    viewTogglePressed = viewToggleActive;
+
+    const inCockpit = cameraController.getMode() === 'cockpit';
+
     // 7. Update camera to follow local aircraft
     cameraController.update(deltaTime);
 
     // 8. Update HUD
     hud.update(aircraft.getSpeed(), aircraft.getAltitude());
+    cockpitOverlay.setVisible(inCockpit);
+    cockpitOverlay.update(aircraft.getSpeed(), aircraft.getAltitude(), aircraft.throttle ?? 0);
     hud.updateCrosshair(camera, aircraft, THREE);
     hud.updateFlightStats(aircraft, CONFIG.debug.showFlightStats);
 
