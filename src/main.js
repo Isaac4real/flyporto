@@ -29,7 +29,7 @@ import { TileLoadingOverlay } from './ui/TileLoadingOverlay.js';
 function createRateLimitBanner() {
   const banner = document.createElement('div');
   banner.id = 'rate-limit-banner';
-  banner.textContent = 'Sorry — Google is rate limiting me. Tiles might not load in HD. I’m working on it now.';
+  banner.textContent = 'Google Tiles API has rate limited me for the day. I’m working on a workaround — please check back later.';
   banner.style.cssText = `
     position: fixed;
     top: 0;
@@ -370,7 +370,10 @@ function startGame(playerName, planeType, planeColor) {
     baseFogNear: CONFIG.fog?.baseFogNear ?? 4000,
     baseFogFar: CONFIG.fog?.baseFogFar ?? 10000,
     minFogNear: CONFIG.fog?.minFogNear ?? 1500,
-    minFogFar: CONFIG.fog?.minFogFar ?? 4000
+    minFogFar: CONFIG.fog?.minFogFar ?? 4000,
+    speedThreshold: CONFIG.fog?.speedThreshold ?? 60,
+    queueThreshold: CONFIG.fog?.queueThreshold ?? 25,
+    smoothingRate: CONFIG.fog?.smoothingRate ?? 2.0
   });
 
   // Tile loading overlay - visual feedback when tiles are loading
