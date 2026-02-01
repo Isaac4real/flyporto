@@ -70,8 +70,11 @@ export class RemoteAircraft {
       group = this.createFallbackMesh(planeColor);
     }
 
-    // Scale up the entire aircraft
+    // Scale the aircraft
     group.scale.setScalar(AIRCRAFT_SCALE);
+
+    // Rotate 180° so nose points forward (-Z direction)
+    group.rotation.y = Math.PI;
 
     return group;
   }

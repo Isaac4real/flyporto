@@ -69,7 +69,8 @@ function createDemoAircraft() {
     // Fall back to primitive geometry
     group = createFallbackDemoAircraft();
   } else {
-    group.scale.setScalar(2.0);
+    group.scale.setScalar(0.5);
+    group.rotation.y = Math.PI;  // Face forward
   }
 
   return group;
@@ -115,7 +116,8 @@ function createFallbackDemoAircraft() {
   hStab.position.set(0, 0, 6.5);
   group.add(hStab);
 
-  group.scale.setScalar(2.0);
+  group.scale.setScalar(0.5);
+  group.rotation.y = Math.PI;  // Face forward
   return group;
 }
 

@@ -42,13 +42,13 @@ export const CONFIG = {
     cruiseSpeed: 80,      // Comfortable cruise where tiles load smoothly
     minSpeed: 25,         // Stall protection - aircraft won't go slower than this
 
-    throttleAccel: 35,    // Reduced from 50 - gentler acceleration
-    drag: 0.007,          // Slightly increased - more natural deceleration
+    throttleAccel: 50,    // Increased for more climb power
+    drag: 0.007,          // Natural deceleration
     gravity: 9.81,        // m/s²
-    liftFactor: 0.35,     // lift per velocity unit (equilibrium at ~28 m/s)
+    liftFactor: 0.5,      // Increased lift for easier climbing
     minAltitude: 10,      // meters - forgiving ground collision
 
-    // Base rotation rates (reduced - smoothing adds responsiveness)
+    // Base rotation rates
     turnRate: 1.2,        // rad/s at max bank (coordinated turn)
     pitchRate: 0.8,       // rad/s at max pitch input
     rollRate: 1.8,        // rad/s at max roll input
@@ -67,7 +67,7 @@ export const CONFIG = {
 
   // Aircraft visual settings
   aircraft: {
-    scale: 2.0,           // Scale factor for aircraft meshes
+    scale: 0.5,           // Scale factor for aircraft meshes
     hitboxRadius: 25,     // Base hitbox radius in meters (before scale)
 
     // Available aircraft types (Ikram's Low Poly Fighter Jets - CC-BY-4.0)
