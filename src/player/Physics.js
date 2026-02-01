@@ -145,18 +145,17 @@ function applyRotation(aircraft, input, deltaTime, speed) {
     // Clamp roll to prevent excessive banking (±70 degrees)
     aircraft.rotation.z = Math.max(-Math.PI * 0.39, Math.min(Math.PI * 0.39, aircraft.rotation.z));
   } else {
-    // Auto-level roll when no significant input (frame-rate independent)
-    aircraft.rotation.z = smoothDamp(aircraft.rotation.z, 0, autoLevelRate, deltaTime);
+    // Slow auto-level roll when no input (0.5 = gentle return to level)
+    const rollAutoLevelRate = 0.5;
+    aircraft.rotation.z = smoothDamp(aircraft.rotation.z, 0, rollAutoLevelRate, deltaTime);
   }
 
   // Apply pitch - X rotation
   if (Math.abs(aircraft.actualPitch) > 0.01) {
     // Apply smoothed pitch input with speed-dependent rate
     aircraft.rotation.x += aircraft.actualPitch * effectivePitchRate * deltaTime;
-  } else {
-    // Auto-level pitch when no significant input (frame-rate independent)
-    aircraft.rotation.x = smoothDamp(aircraft.rotation.x, 0, autoLevelRate, deltaTime);
   }
+  // NO auto-level for pitch - aircraft maintains its pitch angle
 
   // Clamp pitch to prevent over-rotation (±50 degrees - slightly tighter than roll)
   aircraft.rotation.x = Math.max(-Math.PI * 0.28, Math.min(Math.PI * 0.28, aircraft.rotation.x));
