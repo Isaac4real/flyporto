@@ -47,12 +47,25 @@ export function createTilesRenderer(camera, renderer) {
     })
   );
 
-  // ====== OPTIMIZED SETTINGS (Stage 16) ======
+  // ====== OPTIMIZED SETTINGS (Stage 16 + Stage 18) ======
 
   // Quality settings
-  tilesRenderer.errorTarget = CONFIG.tiles.errorTarget;        // Lower = higher quality faster
+  tilesRenderer.errorTarget = CONFIG.tiles.errorTarget;        // Managed by AdaptiveQuality
   tilesRenderer.errorThreshold = CONFIG.tiles.errorThreshold;  // Infinity = never hide tiles
   tilesRenderer.maxDepth = Infinity;                           // Load full depth
+
+  // STAGE 18: Optimized load strategy for faster tile streaming
+  // Tiles load independently without waiting for parents - much faster for flight
+  if (CONFIG.tiles.optimizedLoadStrategy) {
+    tilesRenderer.optimizedLoadStrategy = true;
+    console.log('[Tiles] Optimized load strategy enabled');
+  }
+
+  // STAGE 18: Load sibling tiles to prevent gaps during camera movement
+  if (CONFIG.tiles.loadSiblings) {
+    tilesRenderer.loadSiblings = true;
+    console.log('[Tiles] Sibling loading enabled');
+  }
 
   // Loading performance
   tilesRenderer.downloadQueue.maxJobs = CONFIG.tiles.maxDownloadJobs;  // More parallel downloads

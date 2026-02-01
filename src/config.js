@@ -22,22 +22,29 @@ export const CONFIG = {
     }
   },
 
-  // 3D Tiles renderer settings - OPTIMIZED for Stage 16
+  // 3D Tiles renderer settings - OPTIMIZED for Stage 16 + Stage 18
   tiles: {
-    errorTarget: 2,              // Lower = faster high quality (was 6)
+    errorTarget: 2,              // Base quality (managed by AdaptiveQuality at runtime)
     errorThreshold: Infinity,    // Prevents tiles disappearing during camera movement
-    maxDownloadJobs: 50,         // More parallel downloads (was 30)
+    maxDownloadJobs: 60,         // Increased from 50 for faster tile loading
     maxParseJobs: 10,            // Keep - GPU parsing is the bottleneck
-    cacheMinBytes: 250 * 1e6,    // 250MB - bigger minimum cache (was 100MB)
-    cacheMaxBytes: 500 * 1e6     // 500MB - allow more tiles in memory (was 400MB)
+    cacheMinBytes: 400 * 1e6,    // 400MB - increased from 250MB
+    cacheMaxBytes: 700 * 1e6,    // 700MB - increased from 500MB
+
+    // Stage 18: Optimized load strategy
+    optimizedLoadStrategy: true, // Tiles load independently (faster for flight)
+    loadSiblings: true           // Prevent gaps during camera movement
   },
 
   // Physics constants for arcade flight model
-  // Tuned for smooth, responsive controls that feel good
+  // REBALANCED in Stage 18 for tile streaming compatibility
   physics: {
-    maxSpeed: 200,        // m/s (~390 knots) - faster feels better
-    throttleAccel: 50,    // m/s² at full throttle - snappy response
-    drag: 0.005,          // velocity-squared coefficient - much lower
+    maxSpeed: 150,        // Reduced from 200 m/s (~290 knots) - tile streaming can keep up
+    cruiseSpeed: 80,      // Comfortable cruise where tiles load smoothly
+    minSpeed: 25,         // Stall protection - aircraft won't go slower than this
+
+    throttleAccel: 35,    // Reduced from 50 - gentler acceleration
+    drag: 0.007,          // Slightly increased - more natural deceleration
     gravity: 9.81,        // m/s²
     liftFactor: 0.35,     // lift per velocity unit (equilibrium at ~28 m/s)
     minAltitude: 10,      // meters - forgiving ground collision
@@ -56,7 +63,6 @@ export const CONFIG = {
     inputCurvePower: 0.4,     // 0 = linear, 1 = full cubic (0.4 is good balance)
 
     // Speed-dependent control authority
-    cruiseSpeed: 100,         // Speed for full control authority
     minSpeedFactor: 0.4       // Minimum control authority at low speeds (40%)
   },
 
@@ -74,6 +80,35 @@ export const CONFIG = {
     tracerDuration: 150,    // ms
     tracerLength: 400,      // meters
     hitMarkerDuration: 300  // ms
+  },
+
+  // Adaptive quality settings (Stage 18)
+  // Dynamically adjusts tile quality based on flight speed
+  adaptiveQuality: {
+    minErrorTarget: 2,          // Best quality (when slow/stationary)
+    maxErrorTarget: 20,         // Fastest loading (when flying fast)
+    speedThresholdLow: 40,      // Below this speed = max quality
+    speedThresholdHigh: 130,    // Above this speed = min quality
+    smoothingRate: 3.0          // How fast quality adjusts (units/second)
+  },
+
+  // Predictive tile loading (Stage 18)
+  // Pre-loads tiles in flight direction
+  predictiveLoading: {
+    enabled: true,
+    updateInterval: 300,        // ms between predictive updates
+    minSpeedThreshold: 30,      // Don't predict below this speed (m/s)
+    lookAheadDistances: [400, 800, 1500]  // Base look-ahead distances in meters
+  },
+
+  // Dynamic fog (Stage 18)
+  // Hides unloaded tiles at the horizon
+  fog: {
+    enabled: true,
+    baseFogNear: 4000,          // Start fog at 4km when slow
+    baseFogFar: 10000,          // Full fog at 10km when slow
+    minFogNear: 1500,           // Closest fog starts (when fast)
+    minFogFar: 4000             // Closest full fog (when fast)
   },
 
   // Mouse aim settings (War Thunder-style mouse flight control)

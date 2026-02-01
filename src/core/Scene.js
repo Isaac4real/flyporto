@@ -7,7 +7,15 @@ import { CONFIG } from '../config.js';
  */
 export function createScene() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87CEEB); // Sky blue
+
+  // Sky blue background
+  const skyColor = 0x87CEEB;
+  scene.background = new THREE.Color(skyColor);
+
+  // Distance fog - fades to sky color to hide unloaded tiles
+  // Near: start fade at 4000m, Far: fully fogged at 10000m
+  scene.fog = new THREE.Fog(skyColor, 4000, 10000);
+
   return scene;
 }
 

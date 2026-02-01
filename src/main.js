@@ -19,6 +19,12 @@ import { Leaderboard } from './combat/Leaderboard.js';
 import { EntryScreen } from './ui/EntryScreen.js';
 import { TilePreloader } from './core/TilePreloader.js';
 
+// Stage 18: Tile streaming performance systems
+import { AdaptiveQuality } from './core/AdaptiveQuality.js';
+import { PredictiveLoader } from './core/PredictiveLoader.js';
+import { FogManager } from './core/FogManager.js';
+import { TileLoadingOverlay } from './ui/TileLoadingOverlay.js';
+
 // ============================================================================
 // PHASE 1: Initialize rendering (runs in background while entry screen shows)
 // ============================================================================
@@ -130,6 +136,39 @@ function startGame(playerName, planeType) {
 
   // Create HUD
   const hud = new HUD(container);
+
+  // ====== STAGE 18: Tile Streaming Performance Systems ======
+
+  // Adaptive quality - adjusts tile quality based on flight speed
+  const adaptiveQuality = new AdaptiveQuality(tilesRenderer, {
+    minErrorTarget: CONFIG.adaptiveQuality?.minErrorTarget ?? 2,
+    maxErrorTarget: CONFIG.adaptiveQuality?.maxErrorTarget ?? 20,
+    speedThresholdLow: CONFIG.adaptiveQuality?.speedThresholdLow ?? 40,
+    speedThresholdHigh: CONFIG.adaptiveQuality?.speedThresholdHigh ?? 130,
+    smoothingRate: CONFIG.adaptiveQuality?.smoothingRate ?? 3.0
+  });
+
+  // Predictive loader - pre-requests tiles in flight direction
+  const predictiveLoader = new PredictiveLoader(tilesRenderer, camera, {
+    enabled: CONFIG.predictiveLoading?.enabled ?? true,
+    updateInterval: CONFIG.predictiveLoading?.updateInterval ?? 300,
+    minSpeedThreshold: CONFIG.predictiveLoading?.minSpeedThreshold ?? 30,
+    lookAheadDistances: CONFIG.predictiveLoading?.lookAheadDistances ?? [400, 800, 1500]
+  });
+
+  // Fog manager - dynamic fog to hide unloaded tiles
+  const fogManager = new FogManager(scene, {
+    enabled: CONFIG.fog?.enabled ?? true,
+    baseFogNear: CONFIG.fog?.baseFogNear ?? 4000,
+    baseFogFar: CONFIG.fog?.baseFogFar ?? 10000,
+    minFogNear: CONFIG.fog?.minFogNear ?? 1500,
+    minFogFar: CONFIG.fog?.minFogFar ?? 4000
+  });
+
+  // Tile loading overlay - visual feedback when tiles are loading
+  const tileLoadingOverlay = new TileLoadingOverlay(container);
+
+  console.log('[Game] Stage 18 tile streaming systems initialized');
 
   // Initialize network manager with player name
   const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
@@ -260,6 +299,23 @@ function startGame(playerName, planeType) {
     if (CONFIG.debug.showTileStats) {
       hud.showTileStats(tilesRenderer);
     }
+
+    // ====== STAGE 18: Tile Streaming Updates ======
+
+    // 12. Update adaptive quality based on flight speed
+    const currentSpeed = aircraft.getSpeed();
+    adaptiveQuality.update(currentSpeed, deltaTime);
+
+    // 13. Pre-load tiles in flight direction (BEFORE main tile update)
+    predictiveLoader.update(aircraft, now);
+
+    // 14. Update dynamic fog based on speed and tile loading state
+    const downloadQueueSize = tilesRenderer.downloadQueue?.itemsInList ?? 0;
+    const parseQueueSize = tilesRenderer.parseQueue?.itemsInList ?? 0;
+    fogManager.update(currentSpeed, downloadQueueSize, deltaTime);
+
+    // 15. Update tile loading overlay
+    tileLoadingOverlay.update(downloadQueueSize, parseQueueSize);
 
     // CRITICAL ORDER - camera matrix MUST update BEFORE tiles
     camera.updateMatrixWorld();
