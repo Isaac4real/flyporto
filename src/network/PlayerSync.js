@@ -49,7 +49,7 @@ export class PlayerSync {
    * Add a new remote player to the scene
    * @param {string} playerId - Unique player identifier
    * @param {string} playerName - Display name
-   * @param {Object} initialData - Initial position/rotation data
+   * @param {Object} initialData - Initial position/rotation data (includes planeType, planeColor)
    */
   addPlayer(playerId, playerName, initialData) {
     // Don't add duplicate players
@@ -59,7 +59,11 @@ export class PlayerSync {
 
     console.log(`[PlayerSync] Adding remote player: ${playerName} (${playerId})`);
 
-    const aircraft = new RemoteAircraft(playerId, playerName);
+    // Extract aircraft customization from initialData
+    const planeColor = initialData?.planeColor || 'blue';
+    const planeType = initialData?.planeType || 'f16';
+
+    const aircraft = new RemoteAircraft(playerId, playerName, planeColor, planeType);
 
     if (initialData) {
       // Set initial network state

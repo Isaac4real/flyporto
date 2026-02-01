@@ -69,7 +69,20 @@ export const CONFIG = {
   // Aircraft visual settings
   aircraft: {
     scale: 2.0,           // Scale factor for aircraft meshes
-    hitboxRadius: 25      // Base hitbox radius in meters (before scale)
+    hitboxRadius: 25,     // Base hitbox radius in meters (before scale)
+
+    // Available aircraft types
+    types: {
+      f16: { id: 'f16', name: 'F-16 Falcon', description: 'Agile multirole fighter' },
+      f22: { id: 'f22', name: 'F-22 Raptor', description: 'Stealth air superiority' },
+      f18: { id: 'f18', name: 'F-18 Hornet', description: 'Naval strike fighter' },
+      cessna: { id: 'cessna', name: 'Cessna 172', description: 'Light civilian aircraft' }
+    },
+
+    defaultType: 'f16',
+
+    // Available accent colors
+    colors: ['red', 'blue', 'green', 'yellow', 'purple', 'orange']
   },
 
   // Combat settings
@@ -124,7 +137,23 @@ export const CONFIG = {
 
   // Debug settings
   debug: {
-    showHitboxes: false,    // Set to true to see hitbox wireframes
-    showTileStats: false    // Set to true to see tile loading stats
+    showHitboxes: false,      // Set to true to see hitbox wireframes
+    showTileStats: false,     // Set to true to see tile loading stats
+    showCheckpoints: false    // Set to true to see checkpoint trigger volumes
+  },
+
+  // Checkpoint racing settings (Stage 19)
+  checkpoints: {
+    enabled: true,
+    triggerRadius: 100,       // Default trigger radius in meters
+    aircraftRadius: 20        // Aircraft bounding radius for collision
+  },
+
+  // Share settings (Stage 20)
+  share: {
+    gameUrl: 'https://flysf.io',
+    twitterHashtags: ['flysf', 'flightsim', 'sanfrancisco'],
+    twitterVia: null,         // Set to Twitter handle without @ (optional)
+    brandingText: 'FLYSF.IO'
   }
 };

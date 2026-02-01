@@ -47,7 +47,7 @@ export class TilePreloader {
 
   setupListeners() {
     // Track root tileset load
-    this.tilesRenderer.addEventListener('load-tile-set', this.boundOnTileSetLoad);
+    this.tilesRenderer.addEventListener('load-tileset', this.boundOnTileSetLoad);
 
     // Track individual tile loads
     this.tilesRenderer.addEventListener('load-model', this.boundOnModelLoad);
@@ -58,7 +58,7 @@ export class TilePreloader {
    */
   removeListeners() {
     if (this.tilesRenderer) {
-      this.tilesRenderer.removeEventListener('load-tile-set', this.boundOnTileSetLoad);
+      this.tilesRenderer.removeEventListener('load-tileset', this.boundOnTileSetLoad);
       this.tilesRenderer.removeEventListener('load-model', this.boundOnModelLoad);
     }
   }

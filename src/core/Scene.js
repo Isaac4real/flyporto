@@ -41,7 +41,8 @@ export function createRenderer() {
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     powerPreference: 'high-performance',
-    logarithmicDepthBuffer: true  // Required for extreme near/far ratio (1e12)
+    logarithmicDepthBuffer: true,  // Required for extreme near/far ratio (1e12)
+    preserveDrawingBuffer: true    // Required for screenshot capture (Stage 20)
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2 for performance

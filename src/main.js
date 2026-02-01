@@ -18,12 +18,22 @@ import { CombatManager } from './combat/CombatManager.js';
 import { Leaderboard } from './combat/Leaderboard.js';
 import { EntryScreen } from './ui/EntryScreen.js';
 import { TilePreloader } from './core/TilePreloader.js';
+import { ModelManager } from './core/ModelManager.js';
 
 // Stage 18: Tile streaming performance systems
 import { AdaptiveQuality } from './core/AdaptiveQuality.js';
 import { PredictiveLoader } from './core/PredictiveLoader.js';
 import { FogManager } from './core/FogManager.js';
 import { TileLoadingOverlay } from './ui/TileLoadingOverlay.js';
+
+// Stage 19: Landmark checkpoint racing
+import { CheckpointManager } from './race/CheckpointManager.js';
+import { RaceHUD } from './ui/RaceHUD.js';
+import { RouteSelector } from './ui/RouteSelector.js';
+
+// Stage 20: Share system
+import { ShareManager } from './share/ShareManager.js';
+import { ShareModal } from './ui/ShareModal.js';
 
 // ============================================================================
 // PHASE 1: Initialize rendering (runs in background while entry screen shows)
@@ -46,19 +56,160 @@ setupLighting(scene);
 const tilesRenderer = createTilesRenderer(camera, renderer);
 scene.add(tilesRenderer.group);
 
-// Position camera for initial tile loading (looking at Golden Gate area)
-// This ensures tiles start loading even before player starts
-camera.position.set(0, CONFIG.startPosition.altitude, 0);
-camera.lookAt(0, 0, -1000);  // Look forward
+// ============================================================================
+// PRELOAD AIRCRAFT MODELS - Load GLTF models in background
+// ============================================================================
+const modelManager = ModelManager.getInstance();
 
-// Start tiles loading immediately (runs in background)
+// Start preloading models (non-blocking)
+modelManager.preloadAll((loaded, total, id) => {
+  console.log(`[Models] Loaded ${id} (${loaded}/${total})`);
+}).catch(err => {
+  console.warn('[Models] Preload error:', err);
+});
+
+// ============================================================================
+// DEMO AIRCRAFT - Show gameplay while loading
+// ============================================================================
+function createDemoAircraft() {
+  // Try to use loaded model, fall back to primitives
+  let group = modelManager.getAircraftMesh('f16', 'orange');
+
+  if (!group) {
+    // Fall back to primitive geometry
+    group = createFallbackDemoAircraft();
+  } else {
+    group.scale.setScalar(2.0);
+  }
+
+  return group;
+}
+
+function createFallbackDemoAircraft() {
+  const group = new THREE.Group();
+
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.4 });
+  const accentMaterial = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 }); // Orange
+
+  // Fuselage
+  const fuselage = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 15), bodyMaterial);
+  group.add(fuselage);
+
+  // Nose cone
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(1, 4, 8), accentMaterial);
+  nose.rotation.x = Math.PI / 2;
+  nose.position.z = -9.5;
+  group.add(nose);
+
+  // Main wings
+  const wings = new THREE.Mesh(new THREE.BoxGeometry(20, 0.3, 4), bodyMaterial);
+  wings.position.z = 1;
+  group.add(wings);
+
+  // Wing tips
+  const leftWingTip = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 4), accentMaterial);
+  leftWingTip.position.set(-11, 0, 1);
+  group.add(leftWingTip);
+
+  const rightWingTip = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 4), accentMaterial);
+  rightWingTip.position.set(11, 0, 1);
+  group.add(rightWingTip);
+
+  // Tail fin
+  const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 4, 3), accentMaterial);
+  tailFin.position.set(0, 2, 6);
+  group.add(tailFin);
+
+  // Horizontal stabilizer
+  const hStab = new THREE.Mesh(new THREE.BoxGeometry(8, 0.3, 2), bodyMaterial);
+  hStab.position.set(0, 0, 6.5);
+  group.add(hStab);
+
+  group.scale.setScalar(2.0);
+  return group;
+}
+
+// Demo aircraft flying a scenic figure-8 path
+const demoAircraft = createDemoAircraft();
+scene.add(demoAircraft);
+
+const demoPath = {
+  // Tight circular path around Golden Gate area (stays near tile loading zone)
+  radiusX: 400,        // X axis radius (tighter)
+  radiusZ: 400,        // Z axis radius (circular)
+  height: 350,         // Flying altitude (lower for better tile views)
+  speed: 0.0003,       // Path speed (slower, more cinematic)
+  startTime: performance.now()
+};
+
+// ============================================================================
+// CINEMATIC CAMERA - Follow the demo aircraft
+// ============================================================================
+const cinematicCamera = {
+  followDistance: 100,   // meters behind (closer)
+  followHeight: 30,      // meters above
+  smoothing: 0.05        // camera smoothing factor (smoother)
+};
+
+let cameraTargetPos = new THREE.Vector3();
+let cameraTargetLook = new THREE.Vector3();
+
+// Start tiles loading immediately with cinematic camera following demo aircraft
 let preloadAnimationId = null;
 function preloadUpdate() {
+  const elapsed = performance.now() - demoPath.startTime;
+  const t = elapsed * demoPath.speed;
+
+  // Figure-8 path (lemniscate)
+  const scale = 1 / (1 + Math.sin(t) * Math.sin(t) * 0.3);
+  const x = demoPath.radiusX * Math.sin(t) * scale;
+  const z = demoPath.radiusZ * Math.sin(t) * Math.cos(t) * scale;
+  const y = demoPath.height + Math.sin(t * 2) * 50; // Gentle altitude variation
+
+  // Position demo aircraft
+  demoAircraft.position.set(x, y, z);
+
+  // Calculate velocity direction for aircraft orientation
+  const nextT = t + 0.01;
+  const nextScale = 1 / (1 + Math.sin(nextT) * Math.sin(nextT) * 0.3);
+  const nextX = demoPath.radiusX * Math.sin(nextT) * nextScale;
+  const nextZ = demoPath.radiusZ * Math.sin(nextT) * Math.cos(nextT) * nextScale;
+  const nextY = demoPath.height + Math.sin(nextT * 2) * 50;
+
+  const velocity = new THREE.Vector3(nextX - x, nextY - y, nextZ - z).normalize();
+
+  // Orient aircraft to face velocity direction with banking
+  const yaw = Math.atan2(-velocity.x, -velocity.z);
+  const pitch = Math.asin(velocity.y);
+  const bankAngle = (nextX - x) * 0.05; // Bank into turns
+  demoAircraft.rotation.set(pitch, yaw, -bankAngle);
+
+  // Calculate camera position (behind and above aircraft)
+  const behind = velocity.clone().multiplyScalar(-cinematicCamera.followDistance);
+  const targetCamPos = demoAircraft.position.clone().add(behind);
+  targetCamPos.y += cinematicCamera.followHeight;
+
+  // Smooth camera movement
+  cameraTargetPos.lerp(targetCamPos, cinematicCamera.smoothing);
+  camera.position.copy(cameraTargetPos);
+
+  // Look at aircraft (slightly ahead)
+  const lookAhead = demoAircraft.position.clone().add(velocity.clone().multiplyScalar(50));
+  cameraTargetLook.lerp(lookAhead, cinematicCamera.smoothing);
+  camera.lookAt(cameraTargetLook);
+
   camera.updateMatrixWorld();
   tilesRenderer.update();
   renderer.render(scene, camera);
   preloadAnimationId = requestAnimationFrame(preloadUpdate);
 }
+
+// Initialize camera position before starting
+cameraTargetPos.set(0, demoPath.height + cinematicCamera.followHeight, cinematicCamera.followDistance);
+cameraTargetLook.set(0, demoPath.height, 0);
+camera.position.copy(cameraTargetPos);
+camera.lookAt(cameraTargetLook);
+
 preloadUpdate();
 
 // ============================================================================
@@ -85,31 +236,39 @@ preloader.onReady = () => {
 // PHASE 3: Start game when user clicks "Take Off!"
 // ============================================================================
 
-entryScreen.onReady = ({ name, plane }) => {
+entryScreen.onReady = ({ name, planeType, planeColor }) => {
   // Stop preload loop
   if (preloadAnimationId) {
     cancelAnimationFrame(preloadAnimationId);
     preloadAnimationId = null;
   }
 
+  // Remove demo aircraft from scene
+  scene.remove(demoAircraft);
+  demoAircraft.traverse((child) => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) child.material.dispose();
+  });
+
   // Clean up preloader
   preloader.dispose();
 
   // Start the actual game with player settings
-  startGame(name, plane);
+  startGame(name, planeType, planeColor);
 };
 
 /**
  * Start the game with the given player settings
  * @param {string} playerName - Player's chosen name
- * @param {string} planeType - Player's chosen plane type
+ * @param {string} planeType - Player's chosen aircraft type (f16, f22, f18, cessna)
+ * @param {string} planeColor - Player's chosen accent color (red, blue, green, etc.)
  */
-function startGame(playerName, planeType) {
-  console.log(`[Game] Starting game as "${playerName}" with ${planeType} plane`);
+function startGame(playerName, planeType, planeColor) {
+  console.log(`[Game] Starting game as "${playerName}" with ${planeType} plane (${planeColor})`);
 
-  // Create aircraft at starting position with chosen plane type
+  // Create aircraft at starting position with chosen plane type and color
   const startPosition = new THREE.Vector3(0, CONFIG.startPosition.altitude, 0);
-  const aircraft = new Aircraft(startPosition, planeType);
+  const aircraft = new Aircraft(startPosition, planeColor, planeType);
   scene.add(aircraft.mesh);
 
   // Initialize input system
@@ -170,9 +329,11 @@ function startGame(playerName, planeType) {
 
   console.log('[Game] Stage 18 tile streaming systems initialized');
 
-  // Initialize network manager with player name
+  // Initialize network manager with player name and aircraft settings
   const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
   const networkManager = new NetworkManager(wsUrl, playerName);
+  networkManager.setPlaneType(planeType);
+  networkManager.setPlaneColor(planeColor);
 
   // Initialize player sync for rendering remote players
   const playerSync = new PlayerSync(scene);
@@ -249,6 +410,132 @@ function startGame(playerName, planeType) {
   // Leaderboard update throttling
   let lastLeaderboardUpdate = 0;
 
+  // ====== STAGE 19: Checkpoint Racing System ======
+
+  const checkpointManager = new CheckpointManager(scene, {
+    debug: CONFIG.debug?.showCheckpoints ?? false
+  });
+
+  const raceHUD = new RaceHUD(container);
+  const routeSelector = new RouteSelector(container);
+
+  // Wire up route selection
+  routeSelector.onRouteSelected = (route) => {
+    checkpointManager.loadRoute(route);
+    checkpointManager.startRace();
+    raceHUD.show(route.name, route.checkpoints.length);
+    raceHUD.updateProgress(0, checkpointManager.checkpoints[0]?.landmark.shortName);
+  };
+
+  // Wire up checkpoint callbacks
+  checkpointManager.onCheckpointReached = (checkpoint, index, splitTime) => {
+    const nextCheckpoint = checkpointManager.checkpoints[index + 1];
+    raceHUD.showCheckpointNotification(
+      checkpoint.landmark.shortName,
+      splitTime,
+      index + 1,
+      checkpointManager.checkpoints.length
+    );
+    raceHUD.updateProgress(
+      index + 1,
+      nextCheckpoint?.landmark.shortName || null,
+      null
+    );
+  };
+
+  // ====== STAGE 20: Share System ======
+
+  const shareManager = new ShareManager(renderer, {
+    twitter: {
+      gameUrl: CONFIG.share?.gameUrl ?? 'https://flysf.io',
+      defaultHashtags: CONFIG.share?.twitterHashtags ?? ['flysf', 'flightsim'],
+      via: CONFIG.share?.twitterVia ?? null
+    },
+    compositor: {
+      brandingText: CONFIG.share?.brandingText ?? 'FLYSF.IO'
+    }
+  });
+
+  const shareModal = new ShareModal(container);
+
+  // Wire up share modal callbacks
+  shareModal.onShareTwitter = () => shareManager.shareToTwitter();
+  shareModal.onDownload = () => shareManager.downloadImage();
+  shareModal.onCopy = async () => await shareManager.copyToClipboard();
+  shareModal.onNativeShare = async () => await shareManager.nativeShare();
+  shareModal.onPlayAgain = () => {
+    checkpointManager.startRace();
+    raceHUD.show(checkpointManager.routeName, checkpointManager.checkpoints.length);
+    raceHUD.updateProgress(0, checkpointManager.checkpoints[0]?.landmark.shortName);
+  };
+  shareModal.onClose = () => {
+    // Continue flying without race
+  };
+
+  // Wire up race completion -> share flow
+  checkpointManager.onRaceComplete = async (result) => {
+    // Hide race HUD, show completion
+    raceHUD.showRaceComplete(result);
+
+    // Capture screenshot after render (next frame)
+    requestAnimationFrame(async () => {
+      try {
+        const captureResult = await shareManager.captureRaceCompletion(result, playerName);
+        // Store for later sharing
+        console.log('[Game] Race screenshot captured');
+      } catch (error) {
+        console.error('[Game] Failed to capture screenshot:', error);
+      }
+    });
+  };
+
+  // Wire up race HUD share button -> share modal
+  raceHUD.onShareClick = async (result) => {
+    raceHUD.hideRaceComplete();
+    if (shareManager.hasCapture()) {
+      shareModal.show({
+        blob: shareManager.getBlob(),
+        dataUrl: shareManager.getPreviewUrl(),
+        raceData: result
+      });
+    } else {
+      // If no capture, try to capture now
+      try {
+        const captureResult = await shareManager.captureRaceCompletion(result, playerName);
+        shareModal.show(captureResult);
+      } catch (error) {
+        console.error('[Game] Failed to capture for share:', error);
+        hud.showNotification('Could not capture screenshot');
+      }
+    }
+  };
+
+  raceHUD.onRetryClick = () => {
+    checkpointManager.startRace();
+    raceHUD.show(checkpointManager.routeName, checkpointManager.checkpoints.length);
+    raceHUD.updateProgress(0, checkpointManager.checkpoints[0]?.landmark.shortName);
+  };
+
+  // Add keyboard shortcut for route selector (R key)
+  document.addEventListener('keydown', (e) => {
+    // Only handle R if not typing in an input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key === 'r' || e.key === 'R') {
+      // Don't open if race is active or modals are open
+      if (checkpointManager.isRaceActive()) {
+        hud.showNotification('Finish or cancel race first');
+        return;
+      }
+      if (raceHUD.isShowingComplete() || shareModal.isVisible()) {
+        return;
+      }
+      routeSelector.toggle();
+    }
+  });
+
+  console.log('[Game] Stage 19-20 race and share systems initialized');
+
   // Main update callback
   function update(deltaTime) {
     // 1. Process input
@@ -271,6 +558,24 @@ function startGame(playerName, planeType) {
 
     // 6. Update combat effects
     combatManager.update(deltaTime);
+
+    // 6.5. Update checkpoint racing (Stage 19)
+    if (checkpointManager.isRaceActive()) {
+      checkpointManager.update(aircraft.position);
+
+      // Update race HUD timer and distance
+      const raceState = checkpointManager.getRaceState();
+      raceHUD.updateTimer(raceState.currentTime);
+
+      const distance = checkpointManager.getDistanceToCheckpoint(aircraft.position);
+      if (distance !== null) {
+        raceHUD.updateProgress(
+          raceState.currentCheckpoint - 1,
+          raceState.nextCheckpointName,
+          distance
+        );
+      }
+    }
 
     // 7. Update camera to follow local aircraft
     cameraController.update(deltaTime);

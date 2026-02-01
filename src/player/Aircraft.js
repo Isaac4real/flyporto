@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
+import { ModelManager } from '../core/ModelManager.js';
 
 const AIRCRAFT_SCALE = CONFIG.aircraft?.scale || 2.0;
 
-// Plane type color palette
+// Plane type color palette (for fallback meshes)
 const PLANE_COLORS = {
   red: { body: 0xcccccc, accent: 0xef4444 },
   blue: { body: 0xcccccc, accent: 0x3b82f6 },
@@ -20,11 +21,13 @@ export class Aircraft {
   /**
    * Create an aircraft at the specified position
    * @param {THREE.Vector3} initialPosition - Starting position in world coordinates
-   * @param {string} planeType - Type/color of plane ('red', 'blue', 'green', etc.)
+   * @param {string} planeColor - Color of plane ('red', 'blue', 'green', etc.)
+   * @param {string} planeType - Type of plane ('f16', 'f22', 'f18', 'cessna')
    */
-  constructor(initialPosition, planeType = 'red') {
-    // Store plane type
+  constructor(initialPosition, planeColor = 'red', planeType = 'f16') {
+    // Store plane type and color
     this.planeType = planeType;
+    this.planeColor = planeColor;
 
     // State
     this.position = initialPosition.clone();
@@ -47,23 +50,47 @@ export class Aircraft {
     // Computed forward vector (updated by updateMatrices)
     this.forward = new THREE.Vector3(0, 0, -1);
 
-    // Create visual mesh with selected plane type
-    this.mesh = this.createMesh(planeType);
+    // Create visual mesh with selected plane type and color
+    this.mesh = this.createMesh(planeType, planeColor);
 
     // Set initial position
     this.mesh.position.copy(this.position);
   }
 
   /**
-   * Create an airplane-shaped mesh using Three.js primitives
-   * @param {string} planeType - The plane type for coloring
+   * Create an airplane mesh - uses GLTF model if available, falls back to primitives
+   * @param {string} planeType - The aircraft type (f16, f22, etc.)
+   * @param {string} planeColor - The accent color
    * @returns {THREE.Group}
    */
-  createMesh(planeType = 'red') {
+  createMesh(planeType = 'f16', planeColor = 'red') {
+    const modelManager = ModelManager.getInstance();
+
+    // Try to get GLTF model
+    let group = modelManager.getAircraftMesh(planeType, planeColor);
+
+    if (!group) {
+      // Fall back to primitive geometry
+      console.log(`[Aircraft] Using fallback mesh for ${planeType}`);
+      group = this.createFallbackMesh(planeColor);
+    }
+
+    // Scale up the entire aircraft
+    group.scale.setScalar(AIRCRAFT_SCALE);
+
+    return group;
+  }
+
+  /**
+   * Create fallback airplane mesh using Three.js primitives
+   * @param {string} planeColor - The plane color for styling
+   * @returns {THREE.Group}
+   */
+  createFallbackMesh(planeColor = 'red') {
     const group = new THREE.Group();
 
     // Get colors for this plane type (fallback to red)
-    const colors = PLANE_COLORS[planeType] || PLANE_COLORS.red;
+    const colors = PLANE_COLORS[planeColor] || PLANE_COLORS.red;
 
     // Materials
     const bodyMaterial = new THREE.MeshStandardMaterial({
@@ -130,9 +157,6 @@ export class Aircraft {
     );
     hStab.position.set(0, 0, 6.5);
     group.add(hStab);
-
-    // Scale up the entire aircraft
-    group.scale.setScalar(AIRCRAFT_SCALE);
 
     return group;
   }

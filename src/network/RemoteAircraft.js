@@ -1,8 +1,19 @@
 import * as THREE from 'three';
 import { PositionBuffer } from './Interpolation.js';
 import { CONFIG } from '../config.js';
+import { ModelManager } from '../core/ModelManager.js';
 
 const AIRCRAFT_SCALE = CONFIG.aircraft?.scale || 2.0;
+
+// Plane type color palette (for fallback meshes)
+const PLANE_COLORS = {
+  red: { body: 0xcccccc, accent: 0xef4444 },
+  blue: { body: 0xcccccc, accent: 0x3b82f6 },
+  green: { body: 0xcccccc, accent: 0x22c55e },
+  yellow: { body: 0xcccccc, accent: 0xeab308 },
+  purple: { body: 0xcccccc, accent: 0xa855f7 },
+  orange: { body: 0xcccccc, accent: 0xf97316 }
+};
 
 /**
  * RemoteAircraft - visual representation of another player's aircraft
@@ -12,10 +23,14 @@ export class RemoteAircraft {
   /**
    * @param {string} playerId - Unique player identifier
    * @param {string} playerName - Display name for the player
+   * @param {string} planeColor - Accent color ('red', 'blue', etc.)
+   * @param {string} planeType - Aircraft type ('f16', 'f22', 'f18', 'cessna')
    */
-  constructor(playerId, playerName) {
+  constructor(playerId, playerName, planeColor = 'blue', planeType = 'f16') {
     this.playerId = playerId;
     this.playerName = playerName;
+    this.planeColor = planeColor;
+    this.planeType = planeType;
 
     // Current interpolated state
     this.position = new THREE.Vector3();
@@ -26,8 +41,8 @@ export class RemoteAircraft {
     this.positionBuffer = new PositionBuffer(4);  // 4 samples
     this.lastUpdateTime = 0;
 
-    // Create visual mesh
-    this.mesh = this.createMesh();
+    // Create visual mesh with model and color
+    this.mesh = this.createMesh(planeType, planeColor);
 
     // Create floating name label (position adjusted for scale)
     this.label = this.createLabel(playerName);
@@ -38,19 +53,47 @@ export class RemoteAircraft {
   }
 
   /**
-   * Create airplane mesh with BLUE color to distinguish from local player
+   * Create airplane mesh - uses GLTF model if available, falls back to primitives
+   * @param {string} planeType - Aircraft type
+   * @param {string} planeColor - Accent color
    * @returns {THREE.Group}
    */
-  createMesh() {
+  createMesh(planeType = 'f16', planeColor = 'blue') {
+    const modelManager = ModelManager.getInstance();
+
+    // Try to get GLTF model
+    let group = modelManager.getAircraftMesh(planeType, planeColor);
+
+    if (!group) {
+      // Fall back to primitive geometry
+      console.log(`[RemoteAircraft] Using fallback mesh for ${planeType}`);
+      group = this.createFallbackMesh(planeColor);
+    }
+
+    // Scale up the entire aircraft
+    group.scale.setScalar(AIRCRAFT_SCALE);
+
+    return group;
+  }
+
+  /**
+   * Create fallback airplane mesh using primitives
+   * @param {string} planeColor - Accent color
+   * @returns {THREE.Group}
+   */
+  createFallbackMesh(planeColor = 'blue') {
     const group = new THREE.Group();
 
-    // Materials - BLUE for remote players (local is gray/red)
+    // Get colors for this plane color
+    const colors = PLANE_COLORS[planeColor] || PLANE_COLORS.blue;
+
+    // Materials
     const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: 0x4488ff,  // Light blue fuselage
+      color: colors.body,
       roughness: 0.4
     });
     const accentMaterial = new THREE.MeshStandardMaterial({
-      color: 0x2255cc,  // Darker blue accents
+      color: colors.accent,
       roughness: 0.4
     });
 
@@ -79,6 +122,21 @@ export class RemoteAircraft {
     wings.position.z = 1;
     group.add(wings);
 
+    // Wing tips with accent color
+    const leftWingTip = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 0.3, 4),
+      accentMaterial
+    );
+    leftWingTip.position.set(-11, 0, 1);
+    group.add(leftWingTip);
+
+    const rightWingTip = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 0.3, 4),
+      accentMaterial
+    );
+    rightWingTip.position.set(11, 0, 1);
+    group.add(rightWingTip);
+
     // Tail fin (vertical stabilizer)
     const tailFin = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 4, 3),
@@ -94,9 +152,6 @@ export class RemoteAircraft {
     );
     hStab.position.set(0, 0, 6.5);
     group.add(hStab);
-
-    // Scale up the entire aircraft
-    group.scale.setScalar(AIRCRAFT_SCALE);
 
     return group;
   }

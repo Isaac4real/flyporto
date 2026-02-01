@@ -82,11 +82,11 @@ export function createTilesRenderer(camera, renderer) {
   tilesRenderer.setCamera(camera);
   tilesRenderer.setResolutionFromRenderer(camera, renderer);
 
-  // Hide tiles until root is loaded (prevents showing holes)
-  tilesRenderer.group.visible = false;
-  tilesRenderer.addEventListener('load-tile-set', () => {
-    console.log('[Tiles] Root tileset loaded, showing tiles');
-    tilesRenderer.group.visible = true;
+  // Show tiles immediately - let users see them load in real-time
+  // This creates a better "wow" moment on the entry screen
+  tilesRenderer.group.visible = true;
+  tilesRenderer.addEventListener('load-tileset', () => {
+    console.log('[Tiles] Root tileset loaded');
   });
 
   return tilesRenderer;

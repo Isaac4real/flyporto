@@ -101,9 +101,15 @@ export class GameServer {
       // Validate name
       const name = this.sanitizeName(msg.name) || 'Anonymous';
 
+      // Extract aircraft customization
+      const planeType = this.sanitizePlaneType(msg.planeType) || 'f16';
+      const planeColor = this.sanitizePlaneColor(msg.planeColor) || 'blue';
+
       this.players.set(playerId, {
         ws,
         name,
+        planeType,
+        planeColor,
         position: { x: 0, y: 500, z: 0 },
         rotation: { x: 0, y: 0, z: 0 },
         velocity: { x: 0, y: 0, z: 0 },
@@ -165,6 +171,24 @@ export class GameServer {
     if (!name || typeof name !== 'string') return null;
     // Remove HTML tags and limit to 20 characters
     return name.replace(/<[^>]*>/g, '').trim().slice(0, 20);
+  }
+
+  /**
+   * Sanitize plane type to only allow valid types
+   */
+  sanitizePlaneType(planeType) {
+    const validTypes = ['f16', 'f22', 'f18', 'cessna'];
+    if (!planeType || typeof planeType !== 'string') return null;
+    return validTypes.includes(planeType) ? planeType : null;
+  }
+
+  /**
+   * Sanitize plane color to only allow valid colors
+   */
+  sanitizePlaneColor(planeColor) {
+    const validColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+    if (!planeColor || typeof planeColor !== 'string') return null;
+    return validColors.includes(planeColor) ? planeColor : null;
   }
 
   /**
@@ -318,6 +342,8 @@ export class GameServer {
     for (const [id, player] of this.players) {
       playersData[id] = {
         name: player.name,
+        planeType: player.planeType,
+        planeColor: player.planeColor,
         position: player.position,
         rotation: player.rotation,
         velocity: player.velocity,
@@ -353,10 +379,13 @@ export class GameServer {
    * Notify all players that a new player joined
    */
   broadcastPlayerJoined(playerId, name) {
+    const player = this.players.get(playerId);
     const message = JSON.stringify({
       type: 'player_joined',
       id: playerId,
       name: name,
+      planeType: player?.planeType || 'f16',
+      planeColor: player?.planeColor || 'blue',
       timestamp: Date.now()
     });
 

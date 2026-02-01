@@ -28,6 +28,10 @@ export class NetworkManager {
     this.maxReconnectAttempts = 10;
     this.reconnectDelay = 1000;
 
+    // Aircraft customization
+    this.planeType = 'f16';
+    this.planeColor = 'red';
+
     // Callbacks (set by consumer)
     this.onPlayersUpdate = null;
     this.onPlayerJoined = null;
@@ -108,11 +112,13 @@ export class NetworkManager {
         this.reconnectAttempts = 0;
         this.onConnectionChange?.(true);
 
-        // Send join message
+        // Send join message with aircraft customization
         this.send({
           type: 'join',
           id: this.playerId,
-          name: this.playerName
+          name: this.playerName,
+          planeType: this.planeType,
+          planeColor: this.planeColor
         });
 
         // Start keepalive ping every 30 seconds
@@ -324,6 +330,48 @@ export class NetworkManager {
     } catch (e) {
       // localStorage may be disabled
     }
+  }
+
+  /**
+   * Set plane type
+   * @param {string} planeType - Aircraft type ('f16', 'f22', 'f18', 'cessna')
+   */
+  setPlaneType(planeType) {
+    this.planeType = planeType;
+    try {
+      localStorage.setItem('flysf-plane-type', planeType);
+    } catch (e) {
+      // localStorage may be disabled
+    }
+  }
+
+  /**
+   * Get plane type
+   * @returns {string}
+   */
+  getPlaneType() {
+    return this.planeType;
+  }
+
+  /**
+   * Set plane color
+   * @param {string} planeColor - Accent color ('red', 'blue', 'green', etc.)
+   */
+  setPlaneColor(planeColor) {
+    this.planeColor = planeColor;
+    try {
+      localStorage.setItem('flysf-plane-color', planeColor);
+    } catch (e) {
+      // localStorage may be disabled
+    }
+  }
+
+  /**
+   * Get plane color
+   * @returns {string}
+   */
+  getPlaneColor() {
+    return this.planeColor;
   }
 
   /**
