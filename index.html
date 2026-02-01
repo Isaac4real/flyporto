@@ -15,13 +15,6 @@
       height: 100%;
       overflow: hidden;
     }
-    #container {
-      width: 100%;
-      height: 100%;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-    }
 
     /* HUD Styles */
     #hud {
@@ -64,12 +57,33 @@
       opacity: 0;
     }
 
+    /* Container ensures canvas stays centered */
+    #container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #container canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
     /* Touch Control Styles */
     #touch-left, #touch-right {
       position: fixed;
       bottom: 0;
       height: 40%;
       pointer-events: auto;
+      overflow: hidden;  /* CRITICAL: prevent nipplejs overflow */
     }
 
     #touch-left {
@@ -89,16 +103,26 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      margin: 4px;
+      border-radius: 8px;
+      transition: background 0.15s ease;
     }
 
     .throttle-zone span {
-      color: rgba(255,255,255,0.3);
-      font-size: 32px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 28px;
+      font-weight: 300;
       user-select: none;
     }
 
+    .throttle-zone.active {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
     .throttle-zone.active span {
-      color: rgba(255,255,255,0.6);
+      color: rgba(255, 255, 255, 0.8);
     }
   </style>
 </head>

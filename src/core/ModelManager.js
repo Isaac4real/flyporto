@@ -11,31 +11,37 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
  */
 
 // Aircraft definitions - maps our IDs to node names in the GLB
+// rotationY: correction to face -Z (forward in Three.js)
 const MODEL_DEFINITIONS = {
   jet1: {
     name: 'Fighter Jet',
     description: 'Sleek combat fighter',
-    nodeName: 'FighterJet1_4'
+    nodeName: 'FighterJet1_4',
+    rotationY: Math.PI  // Needs 180° rotation
   },
   jet2: {
     name: 'Strike Fighter',
     description: 'Heavy attack fighter',
-    nodeName: 'FighterJet2_3'
+    nodeName: 'FighterJet2_3',
+    rotationY: 0  // Already facing correct direction
   },
   plane1: {
     name: 'Light Aircraft',
     description: 'Agile propeller plane',
-    nodeName: 'Plane1_0'
+    nodeName: 'Plane1_0',
+    rotationY: Math.PI  // Needs 180° rotation
   },
   plane2: {
     name: 'Sport Plane',
     description: 'Fast sport aircraft',
-    nodeName: 'Plane2_1'
+    nodeName: 'Plane2_1',
+    rotationY: Math.PI  // Needs 180° rotation
   },
   plane3: {
     name: 'Trainer',
     description: 'Versatile trainer',
-    nodeName: 'Plane3_2'
+    nodeName: 'Plane3_2',
+    rotationY: 0  // Already facing correct direction
   }
 };
 
@@ -207,9 +213,8 @@ export class ModelManager {
       wrapper.scale.setScalar(scale);
     }
 
-    // Rotate to face -Z (forward in Three.js)
-    // The model appears to face +Z, so rotate 180 degrees
-    clone.rotation.y = Math.PI;
+    // Apply per-model rotation to face -Z (forward in Three.js)
+    clone.rotation.y = definition.rotationY ?? Math.PI;
 
     return wrapper;
   }

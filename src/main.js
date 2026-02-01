@@ -68,11 +68,12 @@ function createDemoAircraft() {
   if (!innerMesh) {
     // Fall back to primitive geometry
     innerMesh = createFallbackDemoAircraft();
+    // Fallback meshes need 180° rotation (GLTF models already rotated by ModelManager)
+    innerMesh.rotation.y = Math.PI;
   }
 
-  // Scale and rotate the inner mesh
+  // Scale the inner mesh (rotation already handled by ModelManager for GLTF models)
   innerMesh.scale.setScalar(0.15);
-  innerMesh.rotation.y = Math.PI;  // Face forward
 
   // Wrap in outer group for cinematic animation
   const wrapper = new THREE.Group();

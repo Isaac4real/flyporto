@@ -68,11 +68,12 @@ export class RemoteAircraft {
       // Fall back to primitive geometry
       console.log(`[RemoteAircraft] Using fallback mesh for ${planeType}`);
       innerMesh = this.createFallbackMesh(planeColor);
+      // Fallback meshes need 180° rotation (GLTF models already rotated by ModelManager)
+      innerMesh.rotation.y = Math.PI;
     }
 
-    // Scale and rotate the inner mesh
+    // Scale the inner mesh (rotation already handled by ModelManager for GLTF models)
     innerMesh.scale.setScalar(AIRCRAFT_SCALE);
-    innerMesh.rotation.y = Math.PI;  // Rotate 180° so nose points forward
 
     // Wrap in outer group - this group's rotation is controlled by network updates
     const wrapper = new THREE.Group();

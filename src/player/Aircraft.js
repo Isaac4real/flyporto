@@ -2,7 +2,20 @@ import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import { ModelManager } from '../core/ModelManager.js';
 
-const AIRCRAFT_SCALE = CONFIG.aircraft?.scale || 2.0;
+/**
+ * Detect if this is a mobile device (touch + narrow screen)
+ */
+function isMobileDevice() {
+  return ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+    && window.innerWidth < 768;
+}
+
+// Apply mobile scale multiplier if on mobile
+const baseScale = CONFIG.aircraft?.scale || 2.0;
+const mobileMultiplier = isMobileDevice()
+  ? (CONFIG.aircraft?.mobileScaleMultiplier || 1)
+  : 1;
+const AIRCRAFT_SCALE = baseScale * mobileMultiplier;
 
 // Plane type color palette (for fallback meshes)
 const PLANE_COLORS = {
@@ -73,11 +86,12 @@ export class Aircraft {
       // Fall back to primitive geometry
       console.log(`[Aircraft] Using fallback mesh for ${planeType}`);
       innerMesh = this.createFallbackMesh(planeColor);
+      // Fallback meshes need 180° rotation (GLTF models already rotated by ModelManager)
+      innerMesh.rotation.y = Math.PI;
     }
 
-    // Scale and rotate the inner mesh
+    // Scale the inner mesh (rotation already handled by ModelManager for GLTF models)
     innerMesh.scale.setScalar(AIRCRAFT_SCALE);
-    innerMesh.rotation.y = Math.PI;  // Rotate 180° so nose points forward
 
     // Wrap in outer group - this group's rotation is controlled by physics
     // The inner mesh rotation is purely visual orientation

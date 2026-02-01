@@ -35,6 +35,13 @@ export class TouchInput {
   }
 
   /**
+   * Detect if this is a mobile device (touch + narrow screen)
+   */
+  isMobileDevice() {
+    return this.isTouchDevice() && window.innerWidth < 768;
+  }
+
+  /**
    * Create touch zone elements
    */
   setupTouchZones(container) {
@@ -61,12 +68,15 @@ export class TouchInput {
    * Setup left joystick using nipplejs
    */
   setupJoystick() {
+    // Responsive joystick size: max 25% of screen width, min 80px, max 120px
+    const joystickSize = Math.max(80, Math.min(120, window.innerWidth * 0.25));
+
     this.leftJoystick = nipplejs.create({
       zone: this.leftZone,
       mode: 'static',
-      position: { left: '80px', bottom: '80px' },
-      color: 'rgba(255, 255, 255, 0.5)',
-      size: 120,
+      position: { left: '50%', bottom: '50%' },  // Center in zone
+      color: 'rgba(255, 255, 255, 0.4)',  // Slightly more subtle
+      size: joystickSize,
       threshold: 0.1,
       fadeTime: 100,
       restJoystick: true
@@ -150,22 +160,26 @@ export class TouchInput {
       right: 20px;
       bottom: 50%;
       transform: translateY(50%);
-      width: 80px;
-      height: 80px;
-      background: rgba(255, 50, 50, 0.5);
-      border: 3px solid rgba(255, 100, 100, 0.8);
+      width: 70px;
+      height: 70px;
+      background: rgba(255, 80, 80, 0.3);
+      border: 2px solid rgba(255, 120, 120, 0.5);
       border-radius: 50%;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       display: flex;
       align-items: center;
       justify-content: center;
       font-family: system-ui, sans-serif;
-      font-size: 14px;
-      font-weight: bold;
-      color: white;
-      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
       user-select: none;
       touch-action: none;
       z-index: 100;
+      transition: background 0.1s ease, border-color 0.1s ease;
     `;
     this.fireButton.textContent = 'FIRE';
     container.appendChild(this.fireButton);
@@ -173,15 +187,18 @@ export class TouchInput {
     this.fireButton.addEventListener('touchstart', (e) => {
       e.preventDefault();
       this.firing = true;
-      this.fireButton.style.background = 'rgba(255, 100, 100, 0.8)';
+      this.fireButton.style.background = 'rgba(255, 100, 100, 0.6)';
+      this.fireButton.style.borderColor = 'rgba(255, 150, 150, 0.8)';
     });
     this.fireButton.addEventListener('touchend', () => {
       this.firing = false;
-      this.fireButton.style.background = 'rgba(255, 50, 50, 0.5)';
+      this.fireButton.style.background = 'rgba(255, 80, 80, 0.3)';
+      this.fireButton.style.borderColor = 'rgba(255, 120, 120, 0.5)';
     });
     this.fireButton.addEventListener('touchcancel', () => {
       this.firing = false;
-      this.fireButton.style.background = 'rgba(255, 50, 50, 0.5)';
+      this.fireButton.style.background = 'rgba(255, 80, 80, 0.3)';
+      this.fireButton.style.borderColor = 'rgba(255, 120, 120, 0.5)';
     });
   }
 
