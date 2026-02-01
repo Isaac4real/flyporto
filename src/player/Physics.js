@@ -1,17 +1,6 @@
-import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
 const PHYSICS = CONFIG.physics;
-
-// Reusable quaternion and vector objects to avoid allocation in hot path
-const _quaternion = new THREE.Quaternion();
-const _pitchQuat = new THREE.Quaternion();
-const _rollQuat = new THREE.Quaternion();
-const _yawQuat = new THREE.Quaternion();
-const _tempEuler = new THREE.Euler();
-const _localX = new THREE.Vector3(1, 0, 0);
-const _localZ = new THREE.Vector3(0, 0, 1);
-const _worldY = new THREE.Vector3(0, 1, 0);
 
 /**
  * Frame-rate independent exponential smoothing (smooth damp)
@@ -124,7 +113,6 @@ export function updatePhysics(aircraft, input, deltaTime) {
 
 /**
  * Apply rotation based on input with smoothing, response curves, and auto-level
- * Uses quaternion-based rotations around local axes to prevent control inversion
  * @param {Aircraft} aircraft
  * @param {Object} input
  * @param {number} deltaTime
@@ -133,6 +121,7 @@ export function updatePhysics(aircraft, input, deltaTime) {
 function applyRotation(aircraft, input, deltaTime, speed) {
   // Get config values with defaults
   const inputSmoothRate = PHYSICS.inputSmoothRate || 6.0;
+  const autoLevelRate = PHYSICS.autoLevelRate || 3.0;
   const curvePower = PHYSICS.inputCurvePower || 0.4;
   const cruiseSpeed = PHYSICS.cruiseSpeed || 100;
   const minSpeedFactor = PHYSICS.minSpeedFactor || 0.4;
@@ -156,58 +145,36 @@ function applyRotation(aircraft, input, deltaTime, speed) {
   // Calculate effective rotation rates with speed authority
   const effectivePitchRate = PHYSICS.pitchRate * speedAuthority;
   const effectiveRollRate = PHYSICS.rollRate * speedAuthority;
-  const effectiveTurnRate = PHYSICS.turnRate * speedAuthority;
 
-  // Calculate rotation deltas
-  const pitchDelta = aircraft.actualPitch * effectivePitchRate * deltaTime;
-  const rollDelta = aircraft.actualRoll * effectiveRollRate * deltaTime;
-
-  // Convert current Euler rotation to quaternion for proper local-space rotations
-  _quaternion.setFromEuler(aircraft.rotation);
-
-  // Apply pitch around LOCAL X-axis (the aircraft's wing axis)
-  // multiply() applies rotation in the quaternion's local frame
-  if (Math.abs(aircraft.actualPitch) > 0.01) {
-    _pitchQuat.setFromAxisAngle(_localX, pitchDelta);
-    _quaternion.multiply(_pitchQuat);
-  }
-
-  // Apply roll around LOCAL Z-axis (the aircraft's nose-to-tail axis)
+  // Apply roll (bank) - Z rotation
   if (Math.abs(aircraft.actualRoll) > 0.01) {
-    _rollQuat.setFromAxisAngle(_localZ, rollDelta);
-    _quaternion.multiply(_rollQuat);
-  }
-
-  // Apply yaw from bank angle in WORLD space (premultiply for world Y-axis)
-  // Extract bank angle from quaternion before converting back to Euler
-  // Use sin(2*bank) for smooth, bounded turn response
-  _tempEuler.setFromQuaternion(_quaternion, 'XYZ');
-  const bankAngle = _tempEuler.z;
-  const turnFactor = Math.sin(bankAngle * 2);
-  const yawDelta = turnFactor * effectiveTurnRate * deltaTime;
-
-  if (Math.abs(yawDelta) > 0.0001) {
-    _yawQuat.setFromAxisAngle(_worldY, yawDelta);
-    _quaternion.premultiply(_yawQuat);  // premultiply for world-space rotation
-  }
-
-  // Normalize to prevent numerical drift
-  _quaternion.normalize();
-
-  // Convert back to Euler ONCE at the end
-  aircraft.rotation.setFromQuaternion(_quaternion, 'XYZ');
-
-  // Auto-level roll when no roll input
-  if (Math.abs(aircraft.actualRoll) <= 0.01) {
-    const rollAutoLevelRate = 2.5;
+    // Apply smoothed roll input with speed-dependent rate
+    aircraft.rotation.z += aircraft.actualRoll * effectiveRollRate * deltaTime;
+    // Clamp roll to prevent excessive banking (±70 degrees)
+    aircraft.rotation.z = Math.max(-Math.PI * 0.39, Math.min(Math.PI * 0.39, aircraft.rotation.z));
+  } else {
+    // Fast auto-level roll when no input
+    const rollAutoLevelRate = 4.0;
     aircraft.rotation.z = smoothDamp(aircraft.rotation.z, 0, rollAutoLevelRate, deltaTime);
   }
 
-  // Clamp roll to prevent excessive banking (±70 degrees)
-  aircraft.rotation.z = Math.max(-Math.PI * 0.39, Math.min(Math.PI * 0.39, aircraft.rotation.z));
+  // Apply pitch - X rotation
+  if (Math.abs(aircraft.actualPitch) > 0.01) {
+    // Apply smoothed pitch input with speed-dependent rate
+    aircraft.rotation.x += aircraft.actualPitch * effectivePitchRate * deltaTime;
+  }
+  // NO auto-level for pitch - aircraft maintains its pitch angle
 
   // Clamp pitch to prevent over-rotation (±60 degrees - allows steep dives/climbs)
   aircraft.rotation.x = Math.max(-Math.PI * 0.33, Math.min(Math.PI * 0.33, aircraft.rotation.x));
+
+  // Yaw from bank angle (coordinated turn)
+  // Use sin(2*bank) instead of tan(bank) for smoother, bounded behavior
+  // sin(2x) gives good turn response: peaks at 45° bank, returns toward 0 at 90°
+  const bankAngle = aircraft.rotation.z;
+  const turnFactor = Math.sin(bankAngle * 2);
+  const effectiveTurnRate = PHYSICS.turnRate * speedAuthority;
+  aircraft.rotation.y += turnFactor * effectiveTurnRate * deltaTime;
 
   // Direct yaw input (optional, for rudder-like control)
   if (input.yaw !== 0) {
