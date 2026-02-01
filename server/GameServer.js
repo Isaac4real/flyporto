@@ -102,7 +102,7 @@ export class GameServer {
       const name = this.sanitizeName(msg.name) || 'Anonymous';
 
       // Extract aircraft customization
-      const planeType = this.sanitizePlaneType(msg.planeType) || 'f16';
+      const planeType = this.sanitizePlaneType(msg.planeType) || 'jet1';
       const planeColor = this.sanitizePlaneColor(msg.planeColor) || 'blue';
 
       this.players.set(playerId, {
@@ -177,7 +177,7 @@ export class GameServer {
    * Sanitize plane type to only allow valid types
    */
   sanitizePlaneType(planeType) {
-    const validTypes = ['f16', 'f22', 'f18', 'cessna'];
+    const validTypes = ['jet1', 'jet2', 'plane1', 'plane2', 'plane3'];
     if (!planeType || typeof planeType !== 'string') return null;
     return validTypes.includes(planeType) ? planeType : null;
   }
@@ -384,7 +384,7 @@ export class GameServer {
       type: 'player_joined',
       id: playerId,
       name: name,
-      planeType: player?.planeType || 'f16',
+      planeType: player?.planeType || 'jet1',
       planeColor: player?.planeColor || 'blue',
       timestamp: Date.now()
     });

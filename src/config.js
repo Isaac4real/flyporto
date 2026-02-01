@@ -37,33 +37,42 @@ export const CONFIG = {
   },
 
   // Physics constants for arcade flight model
-  // REBALANCED in Stage 18 for tile streaming compatibility
+  // V2 OVERHAUL - Deep match to fly.pieter.com (NO INPUT SMOOTHING)
   physics: {
-    maxSpeed: 150,        // Reduced from 200 m/s (~290 knots) - tile streaming can keep up
+    maxSpeed: 150,        // m/s (~540 km/h)
     cruiseSpeed: 80,      // Comfortable cruise where tiles load smoothly
-    minSpeed: 25,         // Stall protection - aircraft won't go slower than this
+    minSpeed: 0,          // Allow full stop like fly.pieter.com
 
-    throttleAccel: 35,    // Reduced from 50 - gentler acceleration
-    drag: 0.007,          // Slightly increased - more natural deceleration
-    gravity: 9.81,        // m/s²
-    liftFactor: 0.35,     // lift per velocity unit (equilibrium at ~28 m/s)
-    minAltitude: 10,      // meters - forgiving ground collision
+    // Throttle - direct increment style like fly.pieter.com
+    throttleAccel: 50,        // Base acceleration
+    decelMultiplier: 8,       // 8x faster decel when releasing throttle (fly.pieter.com)
+    drag: 0.005,              // Light drag
 
-    // Base rotation rates (reduced - smoothing adds responsiveness)
-    turnRate: 1.2,        // rad/s at max bank (coordinated turn)
-    pitchRate: 0.8,       // rad/s at max pitch input
-    rollRate: 1.8,        // rad/s at max roll input
+    // Simplified gravity/lift - fly.pieter.com style
+    gravity: 9.81,            // m/s²
+    gravityFactor: 0.036,     // fly.pieter.com value (scaled)
+    liftFactor: 0.0015,       // fly.pieter.com value (scaled)
+    takeoffSpeed: 40,         // m/s - hard gate for pitch control (~74 km/h equivalent)
+    minAltitude: 10,          // meters - forgiving ground collision
 
-    // Input smoothing rates (higher = faster response, lower = smoother)
-    inputSmoothRate: 6.0,     // How fast actual input follows target (6 = ~85% in 0.3s)
-    autoLevelRate: 3.0,       // How fast aircraft levels when no input
-    throttleSmoothRate: 2.5,  // How fast throttle responds
+    // Rotation - match fly.pieter.com exactly
+    pitchRate: 0.9,           // rad/s - fly.pieter.com pitchSpeed
+    rollRate: 1.44,           // rad/s - fly.pieter.com rollSpeed
+    turnRate: 5,              // rad/s - fly.pieter.com yawRate (yaw while rolling)
+    autoLevelRate: 0.9,       // rad/s - fly.pieter.com rollRecoverySpeed (linear, not exponential)
 
-    // Response curve (reduces sensitivity near center for precision)
-    inputCurvePower: 0.4,     // 0 = linear, 1 = full cubic (0.4 is good balance)
+    // Rotation limits - fly.pieter.com values
+    maxRoll: Math.PI / 2,     // 90 degrees
+    maxPitch: 1.5,            // ~86 degrees
 
-    // Speed-dependent control authority
-    minSpeedFactor: 0.4       // Minimum control authority at low speeds (40%)
+    // NO INPUT SMOOTHING - direct input like fly.pieter.com
+    directInput: true,        // Flag: use direct input mode (no smoothDamp)
+
+    // Legacy values (kept for compatibility but not used when directInput=true)
+    inputSmoothRate: 10.0,
+    pitchSmoothMultiplier: 1.5,
+    inputCurvePower: 0,       // Linear input - no response curve
+    minSpeedFactor: 0.2
   },
 
   // Aircraft visual settings
@@ -71,24 +80,25 @@ export const CONFIG = {
     scale: 2.0,           // Scale factor for aircraft meshes
     hitboxRadius: 25,     // Base hitbox radius in meters (before scale)
 
-    // Available aircraft types
+    // Available aircraft types (Ikram's Low Poly Fighter Jets - CC-BY-4.0)
     types: {
-      f16: { id: 'f16', name: 'F-16 Falcon', description: 'Agile multirole fighter' },
-      f22: { id: 'f22', name: 'F-22 Raptor', description: 'Stealth air superiority' },
-      f18: { id: 'f18', name: 'F-18 Hornet', description: 'Naval strike fighter' },
-      cessna: { id: 'cessna', name: 'Cessna 172', description: 'Light civilian aircraft' }
+      jet1: { id: 'jet1', name: 'Fighter Jet', description: 'Sleek combat fighter' },
+      jet2: { id: 'jet2', name: 'Strike Fighter', description: 'Heavy attack fighter' },
+      plane1: { id: 'plane1', name: 'Light Aircraft', description: 'Agile propeller plane' },
+      plane2: { id: 'plane2', name: 'Sport Plane', description: 'Fast sport aircraft' },
+      plane3: { id: 'plane3', name: 'Trainer', description: 'Versatile trainer' }
     },
 
-    defaultType: 'f16',
+    defaultType: 'jet1',
 
     // Available accent colors
     colors: ['red', 'blue', 'green', 'yellow', 'purple', 'orange']
   },
 
-  // Combat settings
+  // Combat settings - fly.pieter.com values
   combat: {
-    fireRate: 5,            // shots per second
-    fireCooldown: 200,      // ms between shots (1000 / fireRate)
+    fireRate: 10,           // shots per second (fly.pieter.com: FIRE_RATE = 10)
+    fireCooldown: 100,      // ms between shots (1000 / 10)
     bulletRange: 800,       // meters
     tracerDuration: 150,    // ms
     tracerLength: 400,      // meters

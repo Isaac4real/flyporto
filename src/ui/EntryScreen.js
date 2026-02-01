@@ -8,7 +8,7 @@ import { CONFIG } from '../config.js';
  */
 export class EntryScreen {
   constructor() {
-    this.selectedType = CONFIG.aircraft?.defaultType || 'f16';
+    this.selectedType = CONFIG.aircraft?.defaultType || 'jet1';
     this.selectedColor = 'red';
     this.playerName = '';
     this.isReady = false;
@@ -19,7 +19,6 @@ export class EntryScreen {
     this.previewCamera = null;
     this.previewRenderer = null;
     this.previewMesh = null;
-    this.previewAnimationId = null;
 
     this.createUI();
     this.setupPreview();
@@ -31,10 +30,9 @@ export class EntryScreen {
 
     // Get aircraft types from config or ModelManager
     const aircraftTypes = CONFIG.aircraft?.types || {
-      f16: { id: 'f16', name: 'F-16 Falcon', description: 'Agile multirole fighter' },
-      f22: { id: 'f22', name: 'F-22 Raptor', description: 'Stealth air superiority' },
-      f18: { id: 'f18', name: 'F-18 Hornet', description: 'Naval strike fighter' },
-      cessna: { id: 'cessna', name: 'Cessna 172', description: 'Light civilian aircraft' }
+      jet1: { id: 'jet1', name: 'Fighter Jet', description: 'Sleek combat fighter' },
+      jet2: { id: 'jet2', name: 'Strike Fighter', description: 'Heavy attack fighter' },
+      plane1: { id: 'plane1', name: 'Light Aircraft', description: 'Agile propeller plane' }
     };
 
     // Build aircraft type options HTML
@@ -45,11 +43,6 @@ export class EntryScreen {
       </div>
     `).join('');
 
-    // Build color options HTML
-    const colors = CONFIG.aircraft?.colors || ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
-    const colorOptionsHtml = colors.map((color, index) => `
-      <div class="color-dot${index === 0 ? ' selected' : ''}" data-color="${color}" style="background: var(--color-${color});"></div>
-    `).join('');
 
     this.overlay.innerHTML = `
       <div class="entry-container">
@@ -66,13 +59,6 @@ export class EntryScreen {
           <label>Aircraft</label>
           <div class="aircraft-options">
             ${typeOptionsHtml}
-          </div>
-        </div>
-
-        <div class="color-selection">
-          <label>Color</label>
-          <div class="color-options">
-            ${colorOptionsHtml}
           </div>
         </div>
 
@@ -491,10 +477,8 @@ export class EntryScreen {
     // Create scene
     this.previewScene = new THREE.Scene();
 
-    // Create camera
-    this.previewCamera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
-    this.previewCamera.position.set(30, 15, 40);
-    this.previewCamera.lookAt(0, 0, 0);
+    // Create camera (will be positioned per-model)
+    this.previewCamera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
 
     // Create renderer
     this.previewRenderer = new THREE.WebGLRenderer({
@@ -507,22 +491,22 @@ export class EntryScreen {
     container.appendChild(this.previewRenderer.domElement);
 
     // Add lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     this.previewScene.add(ambientLight);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
     directionalLight.position.set(5, 10, 7);
     this.previewScene.add(directionalLight);
 
-    const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    const backLight = new THREE.DirectionalLight(0xffffff, 0.4);
     backLight.position.set(-5, 5, -7);
     this.previewScene.add(backLight);
 
     // Load initial preview model
     this.updatePreviewModel();
 
-    // Start animation loop
-    this.animatePreview();
+    // Render once (no animation loop - static view)
+    this.renderPreview();
 
     // Handle resize
     const resizeObserver = new ResizeObserver(() => {
@@ -530,6 +514,7 @@ export class EntryScreen {
         this.previewCamera.aspect = container.clientWidth / container.clientHeight;
         this.previewCamera.updateProjectionMatrix();
         this.previewRenderer.setSize(container.clientWidth, container.clientHeight);
+        this.renderPreview();
       }
     });
     resizeObserver.observe(container);
@@ -559,29 +544,53 @@ export class EntryScreen {
     let mesh = modelManager.getAircraftMesh(this.selectedType, this.selectedColor);
 
     if (!mesh) {
-      // Use fallback
       mesh = modelManager.createFallbackMesh(this.selectedColor);
     }
 
-    // Scale for preview
-    mesh.scale.setScalar(1.5);
     this.previewMesh = mesh;
     this.previewScene.add(mesh);
+
+    // Frame the camera to fit this specific model
+    this.frameCameraToModel(mesh);
+    this.renderPreview();
   }
 
   /**
-   * Animate the preview rotation
+   * Position camera to properly frame the model
    */
-  animatePreview() {
-    if (!this.previewRenderer) return;
+  frameCameraToModel(mesh) {
+    // Calculate bounding box of the mesh
+    const box = new THREE.Box3().setFromObject(mesh);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
 
-    this.previewAnimationId = requestAnimationFrame(() => this.animatePreview());
+    // Get the maximum dimension
+    const maxDim = Math.max(size.x, size.y, size.z);
 
-    if (this.previewMesh) {
-      this.previewMesh.rotation.y += 0.01;
+    // Calculate distance needed to fit the model in view
+    const fov = this.previewCamera.fov * (Math.PI / 180);
+    const distance = (maxDim / 2) / Math.tan(fov / 2) * 1.3; // 1.3x for slight padding
+
+    // Position camera at 3/4 view angle (front-right, slightly above)
+    const angle = Math.PI / 5; // 36 degrees from front
+    const elevation = 0.3; // slight elevation
+
+    this.previewCamera.position.set(
+      center.x + distance * Math.sin(angle),
+      center.y + distance * elevation,
+      center.z + distance * Math.cos(angle)
+    );
+    this.previewCamera.lookAt(center);
+    this.previewCamera.updateProjectionMatrix();
+  }
+
+  /**
+   * Render the preview (single frame, no animation)
+   */
+  renderPreview() {
+    if (this.previewRenderer && this.previewScene && this.previewCamera) {
+      this.previewRenderer.render(this.previewScene, this.previewCamera);
     }
-
-    this.previewRenderer.render(this.previewScene, this.previewCamera);
   }
 
   setupEventListeners() {
@@ -606,17 +615,6 @@ export class EntryScreen {
         aircraftOptions.forEach(o => o.classList.remove('selected'));
         option.classList.add('selected');
         this.selectedType = option.dataset.type;
-        this.updatePreviewModel();
-      });
-    });
-
-    // Color selection
-    const colorDots = this.overlay.querySelectorAll('.color-dot');
-    colorDots.forEach(dot => {
-      dot.addEventListener('click', () => {
-        colorDots.forEach(d => d.classList.remove('selected'));
-        dot.classList.add('selected');
-        this.selectedColor = dot.dataset.color;
         this.updatePreviewModel();
       });
     });
@@ -697,12 +695,6 @@ export class EntryScreen {
    * Hide the entry screen with animation
    */
   hide() {
-    // Stop preview animation
-    if (this.previewAnimationId) {
-      cancelAnimationFrame(this.previewAnimationId);
-      this.previewAnimationId = null;
-    }
-
     // Dispose preview resources
     if (this.previewRenderer) {
       this.previewRenderer.dispose();

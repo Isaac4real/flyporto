@@ -5,46 +5,52 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 /**
  * ModelManager - Singleton for loading and caching GLTF aircraft models
  *
- * Features:
- * - Preloads all models on initialization
- * - Caches loaded models to avoid re-fetching
- * - Clones models with accent color applied
- * - Falls back to primitive geometry on load failure
+ * Uses Ikram's "Low poly Fighter Jets" model (CC-BY-4.0)
+ * Credit: https://sketchfab.com/3d-models/low-poly-fighter-jets-71505a45880c40eebe964c6e3c4bdc11
+ * Author: Ikram (https://sketchfab.com/IkramBandagi)
  */
 
-// Model definitions
+// Aircraft definitions - maps our IDs to node names in the GLB
 const MODEL_DEFINITIONS = {
-  f16: {
-    path: '/models/f16.glb',
-    name: 'F-16 Falcon',
-    description: 'Agile multirole fighter'
+  jet1: {
+    name: 'Fighter Jet',
+    description: 'Sleek combat fighter',
+    nodeName: 'FighterJet1_4'
   },
-  f22: {
-    path: '/models/f22.glb',
-    name: 'F-22 Raptor',
-    description: 'Stealth air superiority'
+  jet2: {
+    name: 'Strike Fighter',
+    description: 'Heavy attack fighter',
+    nodeName: 'FighterJet2_3'
   },
-  f18: {
-    path: '/models/f18.glb',
-    name: 'F-18 Hornet',
-    description: 'Naval strike fighter'
+  plane1: {
+    name: 'Light Aircraft',
+    description: 'Agile propeller plane',
+    nodeName: 'Plane1_0'
   },
-  cessna: {
-    path: '/models/cessna.glb',
-    name: 'Cessna 172',
-    description: 'Light civilian aircraft'
+  plane2: {
+    name: 'Sport Plane',
+    description: 'Fast sport aircraft',
+    nodeName: 'Plane2_1'
+  },
+  plane3: {
+    name: 'Trainer',
+    description: 'Versatile trainer',
+    nodeName: 'Plane3_2'
   }
 };
 
-// Color palette for accent colors
-const ACCENT_COLORS = {
-  red: 0xef4444,
-  blue: 0x3b82f6,
-  green: 0x22c55e,
-  yellow: 0xeab308,
-  purple: 0xa855f7,
-  orange: 0xf97316
+// Team color tint values (applied as subtle overlay)
+const TEAM_COLORS = {
+  red: new THREE.Color(0.9, 0.3, 0.3),
+  blue: new THREE.Color(0.3, 0.5, 0.9),
+  green: new THREE.Color(0.3, 0.8, 0.4),
+  yellow: new THREE.Color(0.9, 0.8, 0.2),
+  purple: new THREE.Color(0.7, 0.3, 0.9),
+  orange: new THREE.Color(0.95, 0.5, 0.2)
 };
+
+// Path to the model file
+const MODEL_PATH = '/models/fighter-jets-ikram.glb';
 
 let instance = null;
 
@@ -56,8 +62,10 @@ export class ModelManager {
     instance = this;
 
     this.models = new Map(); // modelId -> THREE.Group (cached original)
-    this.loadingPromises = new Map(); // modelId -> Promise
+    this.collectionScene = null;
     this.loaded = false;
+    this.loading = false;
+    this.loadPromise = null;
 
     // Setup loaders
     this.gltfLoader = new GLTFLoader();
@@ -70,7 +78,6 @@ export class ModelManager {
 
   /**
    * Get singleton instance
-   * @returns {ModelManager}
    */
   static getInstance() {
     if (!instance) {
@@ -81,143 +88,154 @@ export class ModelManager {
 
   /**
    * Get model definitions
-   * @returns {Object}
    */
   getModelDefinitions() {
     return MODEL_DEFINITIONS;
   }
 
   /**
-   * Get accent color hex value
-   * @param {string} colorName - Color name (red, blue, green, etc.)
-   * @returns {number} Hex color value
-   */
-  getAccentColor(colorName) {
-    return ACCENT_COLORS[colorName] || ACCENT_COLORS.red;
-  }
-
-  /**
-   * Preload all aircraft models
-   * @param {Function} onProgress - Callback (loaded, total, modelId)
-   * @returns {Promise<void>}
+   * Preload all aircraft models from the collection
    */
   async preloadAll(onProgress) {
-    const modelIds = Object.keys(MODEL_DEFINITIONS);
-    let loaded = 0;
+    if (this.loaded) return;
+    if (this.loading) return this.loadPromise;
 
-    const promises = modelIds.map(async (modelId) => {
+    this.loading = true;
+
+    this.loadPromise = new Promise(async (resolve) => {
       try {
-        await this.loadModel(modelId);
-        loaded++;
-        if (onProgress) {
-          onProgress(loaded, modelIds.length, modelId);
+        console.log('[ModelManager] Loading aircraft from', MODEL_PATH);
+        const gltf = await this.loadGLTF(MODEL_PATH);
+        this.collectionScene = gltf.scene;
+
+        // Debug: print scene structure
+        console.log('[ModelManager] Model loaded, extracting aircraft...');
+        this.debugPrintScene(gltf.scene);
+
+        // Extract individual aircraft
+        const modelIds = Object.keys(MODEL_DEFINITIONS);
+        let loaded = 0;
+
+        for (const modelId of modelIds) {
+          const extracted = this.extractAircraft(modelId);
+          if (extracted) {
+            this.models.set(modelId, extracted);
+            console.log(`[ModelManager] Extracted: ${modelId}`);
+          } else {
+            console.warn(`[ModelManager] Could not find: ${modelId}`);
+          }
+          loaded++;
+          if (onProgress) {
+            onProgress(loaded, modelIds.length, modelId);
+          }
         }
+
+        this.loaded = true;
+        this.loading = false;
+        console.log(`[ModelManager] Preload complete: ${this.models.size}/${modelIds.length} aircraft`);
+        resolve();
       } catch (error) {
-        console.warn(`[ModelManager] Failed to load ${modelId}:`, error.message);
-        loaded++;
-        if (onProgress) {
-          onProgress(loaded, modelIds.length, modelId);
-        }
+        console.error('[ModelManager] Failed to load models:', error);
+        this.loading = false;
+        resolve(); // Don't reject - we'll use fallbacks
       }
     });
 
-    await Promise.all(promises);
-    this.loaded = true;
-    console.log(`[ModelManager] Preload complete: ${this.models.size}/${modelIds.length} models loaded`);
+    return this.loadPromise;
   }
 
   /**
-   * Load a single model
-   * @param {string} modelId - Model identifier (f16, f22, etc.)
-   * @returns {Promise<THREE.Group>}
+   * Load a GLTF file
    */
-  async loadModel(modelId) {
-    // Return cached model if already loaded
-    if (this.models.has(modelId)) {
-      return this.models.get(modelId);
-    }
+  loadGLTF(path) {
+    return new Promise((resolve, reject) => {
+      this.gltfLoader.load(path, resolve, undefined, reject);
+    });
+  }
 
-    // Return existing loading promise if in progress
-    if (this.loadingPromises.has(modelId)) {
-      return this.loadingPromises.get(modelId);
-    }
+  /**
+   * Debug print scene structure
+   */
+  debugPrintScene(node, depth = 0) {
+    if (depth > 3) return;
+    const indent = '  '.repeat(depth);
+    const type = node.isMesh ? 'MESH' : 'NODE';
+    console.log(`${indent}[${type}] "${node.name}"`);
+    node.children.forEach(child => this.debugPrintScene(child, depth + 1));
+  }
+
+  /**
+   * Extract a specific aircraft from the loaded collection
+   */
+  extractAircraft(modelId) {
+    if (!this.collectionScene) return null;
 
     const definition = MODEL_DEFINITIONS[modelId];
-    if (!definition) {
-      throw new Error(`Unknown model: ${modelId}`);
-    }
+    if (!definition) return null;
 
-    // Create loading promise
-    const loadPromise = new Promise((resolve, reject) => {
-      this.gltfLoader.load(
-        definition.path,
-        (gltf) => {
-          const model = gltf.scene;
-
-          // Prepare model: compute bounding box, normalize
-          model.traverse((child) => {
-            if (child.isMesh) {
-              child.castShadow = true;
-              child.receiveShadow = true;
-            }
-          });
-
-          // Store in cache
-          this.models.set(modelId, model);
-          this.loadingPromises.delete(modelId);
-
-          console.log(`[ModelManager] Loaded: ${modelId}`);
-          resolve(model);
-        },
-        undefined, // onProgress - not used
-        (error) => {
-          this.loadingPromises.delete(modelId);
-          reject(error);
-        }
-      );
+    // Find the node by name
+    let foundNode = null;
+    this.collectionScene.traverse((node) => {
+      if (node.name === definition.nodeName) {
+        foundNode = node;
+      }
     });
 
-    this.loadingPromises.set(modelId, loadPromise);
-    return loadPromise;
+    if (!foundNode) {
+      console.warn(`[ModelManager] Node "${definition.nodeName}" not found for ${modelId}`);
+      return null;
+    }
+
+    // Clone the node and all its children
+    const clone = foundNode.clone(true);
+
+    // Create a wrapper group
+    const wrapper = new THREE.Group();
+    wrapper.name = modelId;
+    wrapper.add(clone);
+
+    // Center the model
+    const box = new THREE.Box3().setFromObject(wrapper);
+    const center = box.getCenter(new THREE.Vector3());
+    clone.position.sub(center);
+
+    // Scale to consistent size (target wingspan ~20 units)
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim > 0) {
+      const scale = 20 / maxDim;
+      wrapper.scale.setScalar(scale);
+    }
+
+    // Rotate to face -Z (forward in Three.js)
+    // The model appears to face +Z, so rotate 180 degrees
+    clone.rotation.y = Math.PI;
+
+    return wrapper;
   }
 
   /**
-   * Get a cloned aircraft mesh with accent color applied
-   * @param {string} modelId - Model identifier
-   * @param {string} accentColor - Color name (red, blue, etc.)
-   * @returns {THREE.Group|null}
+   * Get a cloned aircraft mesh (preserves original texture colors)
+   * Team color parameter is kept for API compatibility but not applied
+   * since the model has proper baked-in colors
    */
-  getAircraftMesh(modelId, accentColor = 'red') {
-    const originalModel = this.models.get(modelId);
+  getAircraftMesh(modelId, teamColor = 'blue') {
+    const original = this.models.get(modelId);
 
-    if (!originalModel) {
+    if (!original) {
       console.warn(`[ModelManager] Model not loaded: ${modelId}, using fallback`);
       return null;
     }
 
     // Clone the model
-    const clone = originalModel.clone(true);
+    const clone = original.clone(true);
 
-    // Apply accent color to appropriate materials
-    const accentHex = ACCENT_COLORS[accentColor] || ACCENT_COLORS.red;
-
+    // Clone materials and enable shadows (preserve original colors)
     clone.traverse((child) => {
       if (child.isMesh && child.material) {
-        // Clone material to avoid affecting other instances
-        if (Array.isArray(child.material)) {
-          child.material = child.material.map((mat) => {
-            const clonedMat = mat.clone();
-            if (this.isAccentMaterial(mat)) {
-              clonedMat.color.setHex(accentHex);
-            }
-            return clonedMat;
-          });
-        } else {
-          child.material = child.material.clone();
-          if (this.isAccentMaterial(child.material)) {
-            child.material.color.setHex(accentHex);
-          }
-        }
+        child.material = child.material.clone();
+        child.castShadow = true;
+        child.receiveShadow = true;
       }
     });
 
@@ -225,72 +243,42 @@ export class ModelManager {
   }
 
   /**
-   * Check if a material should receive the accent color
-   * Materials are considered "accent" if:
-   * - Name contains 'accent', 'detail', 'highlight', 'trim', 'stripe'
-   * - OR the original color is close to red/bright colors
-   * @param {THREE.Material} material
-   * @returns {boolean}
-   */
-  isAccentMaterial(material) {
-    if (!material.name) return false;
-
-    const name = material.name.toLowerCase();
-    const accentKeywords = ['accent', 'detail', 'highlight', 'trim', 'stripe', 'color', 'paint'];
-
-    return accentKeywords.some((keyword) => name.includes(keyword));
-  }
-
-  /**
    * Create fallback primitive geometry aircraft
-   * Used when GLTF model fails to load
-   * @param {string} accentColor - Color name
-   * @returns {THREE.Group}
    */
-  createFallbackMesh(accentColor = 'red') {
+  createFallbackMesh(teamColor = 'blue') {
     const group = new THREE.Group();
+    const tint = TEAM_COLORS[teamColor] || TEAM_COLORS.blue;
 
-    const accentHex = ACCENT_COLORS[accentColor] || ACCENT_COLORS.red;
-
-    // Materials
+    // Body material with team color
     const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: 0xcccccc,
-      roughness: 0.4
-    });
-    const accentMaterial = new THREE.MeshStandardMaterial({
-      color: accentHex,
-      roughness: 0.4
+      color: 0x6b7280,
+      metalness: 0.6,
+      roughness: 0.4,
+      emissive: tint,
+      emissiveIntensity: 0.2
     });
 
-    // Fuselage - elongated box (length along -Z)
+    // Fuselage
     const fuselage = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 15), bodyMaterial);
-    fuselage.position.z = 0;
+    fuselage.castShadow = true;
     group.add(fuselage);
 
-    // Nose cone
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(1, 4, 8), accentMaterial);
+    // Nose
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(1, 4, 8), bodyMaterial);
     nose.rotation.x = Math.PI / 2;
     nose.position.z = -9.5;
     group.add(nose);
 
-    // Main wings - wide flat box
+    // Wings
     const wings = new THREE.Mesh(new THREE.BoxGeometry(20, 0.3, 4), bodyMaterial);
     wings.position.z = 1;
+    wings.castShadow = true;
     group.add(wings);
 
-    // Wing tips with accent color
-    const leftWingTip = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 4), accentMaterial);
-    leftWingTip.position.set(-11, 0, 1);
-    group.add(leftWingTip);
-
-    const rightWingTip = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 4), accentMaterial);
-    rightWingTip.position.set(11, 0, 1);
-    group.add(rightWingTip);
-
-    // Tail fin (vertical stabilizer)
-    const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 4, 3), accentMaterial);
-    tailFin.position.set(0, 2, 6);
-    group.add(tailFin);
+    // Tail
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 4, 3), bodyMaterial);
+    tail.position.set(0, 2, 6);
+    group.add(tail);
 
     // Horizontal stabilizer
     const hStab = new THREE.Mesh(new THREE.BoxGeometry(8, 0.3, 2), bodyMaterial);
@@ -302,7 +290,6 @@ export class ModelManager {
 
   /**
    * Check if models are loaded
-   * @returns {boolean}
    */
   isLoaded() {
     return this.loaded;
@@ -310,8 +297,6 @@ export class ModelManager {
 
   /**
    * Check if a specific model is available
-   * @param {string} modelId
-   * @returns {boolean}
    */
   hasModel(modelId) {
     return this.models.has(modelId);
@@ -319,7 +304,6 @@ export class ModelManager {
 
   /**
    * Get list of available model IDs
-   * @returns {string[]}
    */
   getAvailableModels() {
     return Array.from(this.models.keys());
