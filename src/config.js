@@ -140,5 +140,13 @@ export const CONFIG = {
   debug: {
     showHitboxes: false,      // Set to true to see hitbox wireframes
     showTileStats: false      // Set to true to see tile loading stats
+  },
+
+  // Share settings (for social sharing)
+  share: {
+    gameUrl: 'https://fly.alistairmcleay.com',
+    twitterHashtags: ['flysf', 'flightsim', 'sanfrancisco'],
+    twitterVia: 'alistairmcleay',
+    brandingText: 'FLY.ALISTAIRMCLEAY.COM'
   }
 };

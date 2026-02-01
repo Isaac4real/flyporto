@@ -51,8 +51,8 @@ scene.add(tilesRenderer.group);
 // ============================================================================
 const modelManager = ModelManager.getInstance();
 
-// Start preloading models (non-blocking)
-modelManager.preloadAll((loaded, total, id) => {
+// Start preloading models (non-blocking) - store promise for later use
+const modelsLoadPromise = modelManager.preloadAll((loaded, total, id) => {
   console.log(`[Models] Loaded ${id} (${loaded}/${total})`);
 }).catch(err => {
   console.warn('[Models] Preload error:', err);
@@ -211,6 +211,14 @@ preloadUpdate();
 // ============================================================================
 
 const entryScreen = new EntryScreen();
+
+// Refresh preview when models finish loading (fixes initial fallback issue)
+modelsLoadPromise.then(() => {
+  if (entryScreen && typeof entryScreen.updatePreviewModel === 'function') {
+    entryScreen.updatePreviewModel();
+  }
+});
+
 const preloader = new TilePreloader(tilesRenderer, {
   minLoadTime: 4000,    // Minimum 4 seconds to ensure tiles load
   minTiles: 15,         // Wait for at least 15 tiles
