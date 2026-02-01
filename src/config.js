@@ -37,40 +37,32 @@ export const CONFIG = {
   },
 
   // Physics constants for arcade flight model
-  // V2 OVERHAUL - Deep match to fly.pieter.com (NO INPUT SMOOTHING)
   physics: {
-    maxSpeed: 150,        // m/s (~540 km/h)
+    maxSpeed: 150,        // Reduced from 200 m/s (~290 knots) - tile streaming can keep up
     cruiseSpeed: 80,      // Comfortable cruise where tiles load smoothly
-    minSpeed: 0,          // Allow full stop like fly.pieter.com
+    minSpeed: 25,         // Stall protection - aircraft won't go slower than this
 
-    // Throttle - direct increment style like fly.pieter.com
-    throttleAccel: 50,        // Base acceleration
-    decelMultiplier: 8,       // 8x faster decel when releasing throttle (fly.pieter.com)
-    drag: 0.005,              // Light drag
+    throttleAccel: 35,    // Reduced from 50 - gentler acceleration
+    drag: 0.007,          // Slightly increased - more natural deceleration
+    gravity: 9.81,        // m/s²
+    liftFactor: 0.35,     // lift per velocity unit (equilibrium at ~28 m/s)
+    minAltitude: 10,      // meters - forgiving ground collision
 
-    // Gravity/lift - velocity-based physics
-    gravity: 9.81,            // m/s²
-    takeoffSpeed: 40,         // m/s - hard gate for lift and pitch control
-    minAltitude: 10,          // meters - forgiving ground collision
+    // Base rotation rates (reduced - smoothing adds responsiveness)
+    turnRate: 1.2,        // rad/s at max bank (coordinated turn)
+    pitchRate: 0.8,       // rad/s at max pitch input
+    rollRate: 1.8,        // rad/s at max roll input
 
-    // Rotation - match fly.pieter.com exactly
-    pitchRate: 0.9,           // rad/s - fly.pieter.com pitchSpeed
-    rollRate: 1.44,           // rad/s - fly.pieter.com rollSpeed
-    turnRate: 5,              // rad/s - fly.pieter.com yawRate (yaw while rolling)
-    autoLevelRate: 0.9,       // rad/s - fly.pieter.com rollRecoverySpeed (linear, not exponential)
+    // Input smoothing rates (higher = faster response, lower = smoother)
+    inputSmoothRate: 6.0,     // How fast actual input follows target (6 = ~85% in 0.3s)
+    autoLevelRate: 3.0,       // How fast aircraft levels when no input
+    throttleSmoothRate: 2.5,  // How fast throttle responds
 
-    // Rotation limits - fly.pieter.com values
-    maxRoll: Math.PI / 2,     // 90 degrees
-    maxPitch: 1.5,            // ~86 degrees
+    // Response curve (reduces sensitivity near center for precision)
+    inputCurvePower: 0.4,     // 0 = linear, 1 = full cubic (0.4 is good balance)
 
-    // NO INPUT SMOOTHING - direct input like fly.pieter.com
-    directInput: true,        // Flag: use direct input mode (no smoothDamp)
-
-    // Legacy values (kept for compatibility but not used when directInput=true)
-    inputSmoothRate: 10.0,
-    pitchSmoothMultiplier: 1.5,
-    inputCurvePower: 0,       // Linear input - no response curve
-    minSpeedFactor: 0.2
+    // Speed-dependent control authority
+    minSpeedFactor: 0.4       // Minimum control authority at low speeds (40%)
   },
 
   // Aircraft visual settings
