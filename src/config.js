@@ -67,7 +67,7 @@ export const CONFIG = {
 
   // Aircraft visual settings
   aircraft: {
-    scale: 0.15,          // Scale factor for aircraft meshes
+    scale: 0.075,         // Scale factor for aircraft meshes (reduced from 0.15)
     hitboxRadius: 25,     // Base hitbox radius in meters (before scale)
 
     // Available aircraft types (Ikram's Low Poly Fighter Jets - CC-BY-4.0)

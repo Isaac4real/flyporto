@@ -67,6 +67,14 @@ export function updatePhysics(aircraft, input, deltaTime) {
   const thrustMagnitude = aircraft.actualThrottle * PHYSICS.throttleAccel * deltaTime;
   aircraft.velocity.addScaledVector(aircraft.forward, thrustMagnitude);
 
+  // 2b. Gradually align velocity with forward direction (arcade flight feel)
+  // This prevents drift when turning - velocity follows the nose
+  if (speed > 5) {  // Only when moving
+    const alignmentRate = 2.0;  // How fast velocity follows nose (per second)
+    const targetVelocity = aircraft.forward.clone().multiplyScalar(speed);
+    aircraft.velocity.lerp(targetVelocity, 1 - Math.exp(-alignmentRate * deltaTime));
+  }
+
   // 3. Apply drag (proportional to velocity, multiplicative)
   aircraft.velocity.multiplyScalar(1 - PHYSICS.drag);
 
@@ -145,8 +153,8 @@ function applyRotation(aircraft, input, deltaTime, speed) {
     // Clamp roll to prevent excessive banking (±70 degrees)
     aircraft.rotation.z = Math.max(-Math.PI * 0.39, Math.min(Math.PI * 0.39, aircraft.rotation.z));
   } else {
-    // Slow auto-level roll when no input (0.5 = gentle return to level)
-    const rollAutoLevelRate = 0.5;
+    // Fast auto-level roll when no input (2.0 = quick return to level)
+    const rollAutoLevelRate = 2.0;
     aircraft.rotation.z = smoothDamp(aircraft.rotation.z, 0, rollAutoLevelRate, deltaTime);
   }
 
@@ -157,15 +165,16 @@ function applyRotation(aircraft, input, deltaTime, speed) {
   }
   // NO auto-level for pitch - aircraft maintains its pitch angle
 
-  // Clamp pitch to prevent over-rotation (±50 degrees - slightly tighter than roll)
-  aircraft.rotation.x = Math.max(-Math.PI * 0.28, Math.min(Math.PI * 0.28, aircraft.rotation.x));
+  // Clamp pitch to prevent over-rotation (±60 degrees - allows steep dives/climbs)
+  aircraft.rotation.x = Math.max(-Math.PI * 0.33, Math.min(Math.PI * 0.33, aircraft.rotation.x));
 
   // Yaw from bank angle (coordinated turn)
   // Use sin(2*bank) instead of tan(bank) for smoother, bounded behavior
   // sin(2x) gives good turn response: peaks at 45° bank, returns toward 0 at 90°
+  // Reduced by 0.5 to stop turning faster when roll input released
   const bankAngle = aircraft.rotation.z;
   const turnFactor = Math.sin(bankAngle * 2);
-  const effectiveTurnRate = PHYSICS.turnRate * speedAuthority;
+  const effectiveTurnRate = PHYSICS.turnRate * speedAuthority * 0.5;
   aircraft.rotation.y += turnFactor * effectiveTurnRate * deltaTime;
 
   // Direct yaw input (optional, for rudder-like control)
