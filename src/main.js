@@ -10,7 +10,6 @@ import { updatePhysics } from './player/Physics.js';
 import { KeyboardInput } from './input/KeyboardInput.js';
 import { InputHandler } from './input/InputHandler.js';
 import { TouchInput } from './input/TouchInput.js';
-import { MouseInput } from './input/MouseInput.js';
 import { CameraController } from './player/CameraController.js';
 import { NetworkManager } from './network/NetworkManager.js';
 import { PlayerSync } from './network/PlayerSync.js';
@@ -274,14 +273,7 @@ function startGame(playerName, planeType, planeColor) {
   const container = document.getElementById('container');
   const keyboardInput = new KeyboardInput();
   const touchInput = new TouchInput(container);
-  const mouseInput = new MouseInput(container, {
-    sensitivity: CONFIG.mouse?.sensitivity ?? 0.15,
-    smoothing: CONFIG.mouse?.smoothing ?? 0.15,
-    maxPitchOffset: CONFIG.mouse?.maxPitchOffset ?? 45,
-    maxYawOffset: CONFIG.mouse?.maxYawOffset ?? 60,
-    invertY: CONFIG.mouse?.invertY ?? false
-  });
-  const inputHandler = new InputHandler(keyboardInput, touchInput, mouseInput);
+  const inputHandler = new InputHandler(keyboardInput, touchInput);
 
   // Initialize camera controller (follow camera)
   const cameraController = new CameraController(camera, aircraft);
@@ -648,15 +640,7 @@ function startGame(playerName, planeType, planeColor) {
     hud.update(aircraft.getSpeed(), aircraft.getAltitude());
     hud.updateCrosshair(camera, aircraft, THREE);
 
-    // 9. Update mouse aim reticle
-    const mouseAimOffset = inputHandler.getMouseAimOffset();
-    hud.updateMouseAimReticle(
-      mouseAimOffset,
-      inputHandler.isMouseLocked(),
-      inputHandler.isKeyboardFlightActive()
-    );
-
-    // 10. Update leaderboard periodically (every 500ms, not every frame)
+    // 9. Update leaderboard periodically (every 500ms, not every frame)
     const now = performance.now();
     if (now - lastLeaderboardUpdate > 500) {
       lastLeaderboardUpdate = now;
