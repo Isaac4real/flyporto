@@ -3,19 +3,17 @@
  */
 
 const KEY_MAPPINGS = {
-  // Pitch
+  // Pitch (WASD style - W nose down, S nose up)
   'KeyW': 'pitchDown',
-  'ArrowUp': 'pitchDown',
   'KeyS': 'pitchUp',
-  'ArrowDown': 'pitchUp',
 
-  // Roll
+  // Roll (A/D for banking)
   'KeyA': 'rollLeft',
-  'ArrowLeft': 'rollLeft',
   'KeyD': 'rollRight',
-  'ArrowRight': 'rollRight',
 
-  // Throttle
+  // Throttle (Arrow keys - Up accelerate, Down decelerate)
+  'ArrowUp': 'throttleUp',
+  'ArrowDown': 'throttleDown',
   'ShiftLeft': 'throttleUp',
   'ShiftRight': 'throttleUp',
   'ControlLeft': 'throttleDown',

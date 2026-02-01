@@ -142,13 +142,13 @@ const PHYSICS = {
 
 | Key | Action |
 |-----|--------|
-| W / ↑ | Pitch down (dive) |
-| S / ↓ | Pitch up (climb) |
-| A / ← | Roll left |
-| D / → | Roll right |
-| Shift | Throttle up |
-| Ctrl | Throttle down |
-| Space | Auto-level (panic button) |
+| W | Pitch down (dive) |
+| S | Pitch up (climb) |
+| A | Roll left |
+| D | Roll right |
+| ↑ / Shift | Throttle up (accelerate) |
+| ↓ / Ctrl | Throttle down (decelerate) |
+| Space / F | Fire |
 
 ## Starting Position
 
