@@ -62,21 +62,23 @@ export class RemoteAircraft {
     const modelManager = ModelManager.getInstance();
 
     // Try to get GLTF model
-    let group = modelManager.getAircraftMesh(planeType, planeColor);
+    let innerMesh = modelManager.getAircraftMesh(planeType, planeColor);
 
-    if (!group) {
+    if (!innerMesh) {
       // Fall back to primitive geometry
       console.log(`[RemoteAircraft] Using fallback mesh for ${planeType}`);
-      group = this.createFallbackMesh(planeColor);
+      innerMesh = this.createFallbackMesh(planeColor);
     }
 
-    // Scale the aircraft
-    group.scale.setScalar(AIRCRAFT_SCALE);
+    // Scale and rotate the inner mesh
+    innerMesh.scale.setScalar(AIRCRAFT_SCALE);
+    innerMesh.rotation.y = Math.PI;  // Rotate 180° so nose points forward
 
-    // Rotate 180° so nose points forward (-Z direction)
-    group.rotation.y = Math.PI;
+    // Wrap in outer group - this group's rotation is controlled by network updates
+    const wrapper = new THREE.Group();
+    wrapper.add(innerMesh);
 
-    return group;
+    return wrapper;
   }
 
   /**

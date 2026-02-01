@@ -63,17 +63,22 @@ modelManager.preloadAll((loaded, total, id) => {
 // ============================================================================
 function createDemoAircraft() {
   // Try to use loaded model, fall back to primitives
-  let group = modelManager.getAircraftMesh('f16', 'orange');
+  let innerMesh = modelManager.getAircraftMesh('f16', 'orange');
 
-  if (!group) {
+  if (!innerMesh) {
     // Fall back to primitive geometry
-    group = createFallbackDemoAircraft();
-  } else {
-    group.scale.setScalar(0.5);
-    group.rotation.y = Math.PI;  // Face forward
+    innerMesh = createFallbackDemoAircraft();
   }
 
-  return group;
+  // Scale and rotate the inner mesh
+  innerMesh.scale.setScalar(0.15);
+  innerMesh.rotation.y = Math.PI;  // Face forward
+
+  // Wrap in outer group for cinematic animation
+  const wrapper = new THREE.Group();
+  wrapper.add(innerMesh);
+
+  return wrapper;
 }
 
 function createFallbackDemoAircraft() {
@@ -116,8 +121,6 @@ function createFallbackDemoAircraft() {
   hStab.position.set(0, 0, 6.5);
   group.add(hStab);
 
-  group.scale.setScalar(0.5);
-  group.rotation.y = Math.PI;  // Face forward
   return group;
 }
 
