@@ -10,7 +10,7 @@ export class TilePreloader {
     this.tileCount = 0;
 
     // Configuration
-    this.minLoadTime = options.minLoadTime || 4000;   // Minimum 4 seconds
+    this.minLoadTime = options.minLoadTime || 10000;  // Minimum 10 seconds
     this.minTiles = options.minTiles || 15;           // Minimum tiles before ready
     this.maxWaitTime = options.maxWaitTime || 60000;  // Force ready after 60s
 
@@ -97,13 +97,19 @@ export class TilePreloader {
       (timeProgress * 0.4) + (tileProgress * 0.6)
     );
 
-    // Generate status text
+    // Generate engaging status text based on progress stages
     let statusText = 'Initializing...';
     if (this.isRootLoaded) {
-      if (this.tileCount > 0) {
-        statusText = `Loading terrain... (${this.tileCount} tiles)`;
+      if (elapsed < 2000) {
+        statusText = 'Connecting to satellite imagery...';
+      } else if (elapsed < 4000) {
+        statusText = `Rendering San Francisco... (${this.tileCount} tiles)`;
+      } else if (elapsed < 6000) {
+        statusText = `Loading Golden Gate Bridge... (${this.tileCount} tiles)`;
+      } else if (elapsed < 8000) {
+        statusText = `Enhancing terrain detail... (${this.tileCount} tiles)`;
       } else {
-        statusText = 'Loading terrain...';
+        statusText = `Preparing for takeoff... (${this.tileCount} tiles)`;
       }
     }
 

@@ -46,6 +46,10 @@ setupLighting(scene);
 const tilesRenderer = createTilesRenderer(camera, renderer);
 scene.add(tilesRenderer.group);
 
+// Force highest quality tiles during preload (errorTarget = 1 means maximum detail)
+const originalErrorTarget = tilesRenderer.errorTarget;
+tilesRenderer.errorTarget = 1;
+
 // ============================================================================
 // PRELOAD AIRCRAFT MODELS - Load GLTF models in background
 // ============================================================================
@@ -133,11 +137,22 @@ scene.add(demoAircraft);
 // CINEMATIC APPROACH - Slow pan toward Golden Gate Bridge
 // Tiles load to high quality since camera direction stays consistent
 // ============================================================================
+
+// Calculate gameplay camera position based on CONFIG
+// This ensures the cinematic ends at the exact position where gameplay starts
+const FOLLOW = CONFIG.camera.follow;
+const headingRad = (CONFIG.startPosition.heading || 0) * Math.PI / 180;
+
 const cinematicPath = {
   // Start position: far from bridge, approaching from the ocean side
   startPos: new THREE.Vector3(800, 400, 1200),
-  // End position: close to bridge
-  endPos: new THREE.Vector3(-200, 350, -400),
+  // End at gameplay camera position: behind and above aircraft at origin
+  // Aircraft starts at (0, altitude, 0), camera is behind based on heading
+  endPos: new THREE.Vector3(
+    Math.sin(headingRad) * FOLLOW.distance,
+    CONFIG.startPosition.altitude + FOLLOW.height,
+    Math.cos(headingRad) * FOLLOW.distance
+  ),
   // Duration: 60 seconds for full journey (but user will likely start before)
   duration: 60000,
   startTime: performance.now()
@@ -220,7 +235,7 @@ modelsLoadPromise.then(() => {
 });
 
 const preloader = new TilePreloader(tilesRenderer, {
-  minLoadTime: 4000,    // Minimum 4 seconds to ensure tiles load
+  minLoadTime: 10000,   // Minimum 10 seconds to load high-res tiles
   minTiles: 15,         // Wait for at least 15 tiles
   maxWaitTime: 60000    // Force ready after 60 seconds max
 });
@@ -251,6 +266,9 @@ entryScreen.onReady = ({ name, planeType, planeColor }) => {
     if (child.geometry) child.geometry.dispose();
     if (child.material) child.material.dispose();
   });
+
+  // Restore original errorTarget (AdaptiveQuality manages from here)
+  tilesRenderer.errorTarget = originalErrorTarget;
 
   // Clean up preloader
   preloader.dispose();
