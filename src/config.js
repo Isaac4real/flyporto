@@ -39,13 +39,13 @@ export const CONFIG = {
 
   // Physics constants for arcade flight model
   physics: {
-    maxSpeed: 150,           // m/s (~290 knots) - cap for gameplay + streaming
+    maxSpeed: 450,           // m/s (~875 knots) - higher top speed
     cruiseSpeed: 80,         // m/s - comfortable cruise for tiles
     minSpeed: 0,             // m/s - allow full stop on runway
     takeoffSpeed: 25,        // m/s - lift/pitch authority below this is limited
     startSpeed: 60,          // m/s - initial spawn speed
 
-    throttleAccel: 25,       // m/s² at full throttle
+    throttleAccel: 35,       // m/s² at full throttle
     throttleChangeRate: 3.0, // Throttle change per second from key input
     drag: 0.06,              // Proportional speed decay per second
     gravityFactor: 9.81,     // m/s² applied as downward velocity change
