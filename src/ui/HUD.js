@@ -79,10 +79,6 @@ export class HUD {
     // Tile loading indicator
     this.createLoadingIndicator();
 
-    // Fade out control hints after 10 seconds
-    setTimeout(() => {
-      this.hintsEl.classList.add('hidden');
-    }, 10000);
   }
 
   /**
