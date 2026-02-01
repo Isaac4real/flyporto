@@ -48,11 +48,9 @@ export const CONFIG = {
     decelMultiplier: 8,       // 8x faster decel when releasing throttle (fly.pieter.com)
     drag: 0.005,              // Light drag
 
-    // Simplified gravity/lift - fly.pieter.com style
+    // Gravity/lift - velocity-based physics
     gravity: 9.81,            // m/s²
-    gravityFactor: 0.036,     // fly.pieter.com value (scaled)
-    liftFactor: 0.0015,       // fly.pieter.com value (scaled)
-    takeoffSpeed: 40,         // m/s - hard gate for pitch control (~74 km/h equivalent)
+    takeoffSpeed: 40,         // m/s - hard gate for lift and pitch control
     minAltitude: 10,          // meters - forgiving ground collision
 
     // Rotation - match fly.pieter.com exactly
