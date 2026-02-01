@@ -146,22 +146,6 @@ export const CONFIG = {
   // Debug settings
   debug: {
     showHitboxes: false,      // Set to true to see hitbox wireframes
-    showTileStats: false,     // Set to true to see tile loading stats
-    showCheckpoints: false    // Set to true to see checkpoint trigger volumes
-  },
-
-  // Checkpoint racing settings (Stage 19)
-  checkpoints: {
-    enabled: true,
-    triggerRadius: 100,       // Default trigger radius in meters
-    aircraftRadius: 20        // Aircraft bounding radius for collision
-  },
-
-  // Share settings (Stage 20)
-  share: {
-    gameUrl: 'https://flysf.io',
-    twitterHashtags: ['flysf', 'flightsim', 'sanfrancisco'],
-    twitterVia: null,         // Set to Twitter handle without @ (optional)
-    brandingText: 'FLYSF.IO'
+    showTileStats: false      // Set to true to see tile loading stats
   }
 };
