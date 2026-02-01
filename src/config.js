@@ -15,10 +15,10 @@ export const CONFIG = {
     near: 1,       // 1 meter
     far: 1e12,     // CRITICAL: Must be very large for globe viewing
     follow: {
-      distance: 80,    // meters behind aircraft
-      height: 25,      // meters above aircraft
+      distance: 150,   // meters behind aircraft
+      height: 40,      // meters above aircraft
       damping: 2.0,    // smoothing factor (higher = faster follow)
-      lookAhead: 100   // meters ahead to look at
+      lookAhead: 120   // meters ahead to look at
     }
   },
 
