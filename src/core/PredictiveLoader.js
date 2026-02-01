@@ -126,10 +126,13 @@ export class PredictiveLoader {
     camera.lookAt(this._lookAt);
     camera.updateMatrixWorld();
 
-    // Temporarily set this camera for tile updates
-    // This queues tile requests without affecting rendering
+    // Temporarily set this camera to inform tiles renderer about needed tiles
+    // NOTE: We intentionally do NOT call tilesRenderer.update() here.
+    // Calling update() with look-ahead cameras causes tiles visible to the
+    // main camera to be marked as "not needed" and eventually disposed,
+    // resulting in blue gaps in the terrain. The main game loop handles
+    // the actual update() call with the main camera properly set.
     this.tilesRenderer.setCamera(camera);
-    this.tilesRenderer.update();
   }
 
   /**

@@ -153,8 +153,8 @@ function applyRotation(aircraft, input, deltaTime, speed) {
     // Clamp roll to prevent excessive banking (±70 degrees)
     aircraft.rotation.z = Math.max(-Math.PI * 0.39, Math.min(Math.PI * 0.39, aircraft.rotation.z));
   } else {
-    // Fast auto-level roll when no input (2.0 = quick return to level)
-    const rollAutoLevelRate = 2.0;
+    // Fast auto-level roll when no input
+    const rollAutoLevelRate = 4.0;
     aircraft.rotation.z = smoothDamp(aircraft.rotation.z, 0, rollAutoLevelRate, deltaTime);
   }
 
@@ -171,10 +171,9 @@ function applyRotation(aircraft, input, deltaTime, speed) {
   // Yaw from bank angle (coordinated turn)
   // Use sin(2*bank) instead of tan(bank) for smoother, bounded behavior
   // sin(2x) gives good turn response: peaks at 45° bank, returns toward 0 at 90°
-  // Reduced by 0.5 to stop turning faster when roll input released
   const bankAngle = aircraft.rotation.z;
   const turnFactor = Math.sin(bankAngle * 2);
-  const effectiveTurnRate = PHYSICS.turnRate * speedAuthority * 0.5;
+  const effectiveTurnRate = PHYSICS.turnRate * speedAuthority;
   aircraft.rotation.y += turnFactor * effectiveTurnRate * deltaTime;
 
   // Direct yaw input (optional, for rudder-like control)

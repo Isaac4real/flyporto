@@ -17,31 +17,31 @@ const MODEL_DEFINITIONS = {
     name: 'Fighter Jet',
     description: 'Sleek combat fighter',
     nodeName: 'FighterJet1_4',
-    rotationY: Math.PI  // Needs 180° rotation
+    rotationY: 0  // Faces correct direction
   },
   jet2: {
     name: 'Strike Fighter',
     description: 'Heavy attack fighter',
     nodeName: 'FighterJet2_3',
-    rotationY: 0  // Already facing correct direction
+    rotationY: Math.PI  // Needs 180° rotation
   },
   plane1: {
     name: 'Light Aircraft',
     description: 'Agile propeller plane',
     nodeName: 'Plane1_0',
-    rotationY: Math.PI  // Needs 180° rotation
+    rotationY: 0  // Faces correct direction
   },
   plane2: {
     name: 'Sport Plane',
     description: 'Fast sport aircraft',
     nodeName: 'Plane2_1',
-    rotationY: Math.PI  // Needs 180° rotation
+    rotationY: 0  // Faces correct direction
   },
   plane3: {
     name: 'Trainer',
     description: 'Versatile trainer',
     nodeName: 'Plane3_2',
-    rotationY: 0  // Already facing correct direction
+    rotationY: Math.PI  // Needs 180° rotation
   }
 };
 

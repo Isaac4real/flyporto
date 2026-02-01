@@ -48,21 +48,21 @@ export const CONFIG = {
     liftFactor: 0.5,      // Increased lift for easier climbing
     minAltitude: 10,      // meters - forgiving ground collision
 
-    // Base rotation rates
-    turnRate: 1.2,        // rad/s at max bank (coordinated turn)
-    pitchRate: 0.8,       // rad/s at max pitch input
-    rollRate: 1.8,        // rad/s at max roll input
+    // Base rotation rates - aggressive for responsive arcade feel
+    turnRate: 2.5,        // rad/s at max bank (coordinated turn)
+    pitchRate: 2.0,       // rad/s at max pitch input
+    rollRate: 3.5,        // rad/s at max roll input
 
     // Input smoothing rates (higher = faster response, lower = smoother)
-    inputSmoothRate: 6.0,     // How fast actual input follows target (6 = ~85% in 0.3s)
+    inputSmoothRate: 15.0,    // Near-instant response (was 6.0)
     autoLevelRate: 3.0,       // How fast aircraft levels when no input
-    throttleSmoothRate: 2.5,  // How fast throttle responds
+    throttleSmoothRate: 4.0,  // How fast throttle responds
 
     // Response curve (reduces sensitivity near center for precision)
-    inputCurvePower: 0.4,     // 0 = linear, 1 = full cubic (0.4 is good balance)
+    inputCurvePower: 0.15,    // Nearly linear for direct control feel (was 0.4)
 
     // Speed-dependent control authority
-    minSpeedFactor: 0.4       // Minimum control authority at low speeds (40%)
+    minSpeedFactor: 0.7       // Minimum control authority at low speeds (70%)
   },
 
   // Aircraft visual settings
