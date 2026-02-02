@@ -29,7 +29,7 @@ import { TileLoadingOverlay } from './ui/TileLoadingOverlay.js';
 function createRateLimitBanner() {
   const banner = document.createElement('div');
   banner.id = 'rate-limit-banner';
-  banner.textContent = 'Google Tiles API has rate limited me for the day. I’m working on a workaround — please check back later.';
+  banner.textContent = 'We’re battling rate limits. Tiles may or may not load right now — we’re working on it.';
   banner.style.cssText = `
     position: fixed;
     top: 0;
