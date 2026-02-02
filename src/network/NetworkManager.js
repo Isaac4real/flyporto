@@ -22,6 +22,8 @@ export class NetworkManager {
     this.playerName = 'Pilot';
     this.autoJoin = options.autoJoin !== false;
     this.hasJoined = false;
+    this.pendingJoin = false;
+    this.pendingCallsign = false;
     this.connected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
@@ -97,6 +99,8 @@ export class NetworkManager {
         this.onConnectionChange?.(true);
 
         if (this.autoJoin) {
+          this.join();
+        } else if (this.pendingJoin) {
           this.join();
         } else {
           this.requestCallsign();
@@ -203,6 +207,11 @@ export class NetworkManager {
    * Request a server-assigned callsign (pre-join).
    */
   requestCallsign() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.pendingCallsign = true;
+      return;
+    }
+    this.pendingCallsign = false;
     this.send({ type: 'assign_name' });
   }
 
@@ -211,6 +220,11 @@ export class NetworkManager {
    */
   join() {
     if (this.hasJoined) return;
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.pendingJoin = true;
+      return;
+    }
+    this.pendingJoin = false;
     this.hasJoined = true;
     this.send({
       type: 'join',
@@ -397,5 +411,7 @@ export class NetworkManager {
     }
     this.connected = false;
     this.hasJoined = false;
+    this.pendingJoin = false;
+    this.pendingCallsign = false;
   }
 }
