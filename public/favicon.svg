@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#1a1a2e"/>
+  <g fill="#4ade80">
+    <!-- Fighter jet silhouette -->
+    <path d="M16 4 L18 10 L26 14 L26 16 L18 15 L18 24 L22 27 L22 29 L16 27 L10 29 L10 27 L14 24 L14 15 L6 16 L6 14 L14 10 Z"/>
+  </g>
+</svg>
