@@ -57,11 +57,16 @@ export class HUD {
     this.connectionStatus.id = 'hud-connection';
     this.connectionStatus.style.cssText = `
       position: fixed;
-      top: 10px;
-      right: 10px;
+      top: calc(var(--top-banner-height, 0px) + 10px);
+      right: 12px;
       color: #ff4444;
       font-family: system-ui, -apple-system, sans-serif;
-      font-size: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
       z-index: 1000;
     `;
