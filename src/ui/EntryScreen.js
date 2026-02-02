@@ -45,8 +45,8 @@ export class EntryScreen {
 
     this.overlay.innerHTML = `
       <div class="entry-container">
-        <h1>SF Flight Sim</h1>
-        <p class="subtitle">Multiplayer dogfighting over photorealistic San Francisco</p>
+        <h1>Fly Porto</h1>
+        <p class="subtitle">Multiplayer dogfighting over photorealistic Porto — Douro River & Ponte D. Luís I</p>
         <p class="demo-hint">Watch the aircraft fly while we load...</p>
 
         <div class="input-group">

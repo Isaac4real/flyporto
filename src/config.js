@@ -1,13 +1,13 @@
 /**
- * Configuration constants for SF Flight Simulator
+ * Configuration constants for Fly Porto
  */
 export const CONFIG = {
-  // Starting position: ~1.3km northwest of Golden Gate Bridge (facing it)
+  // Starting position: above Douro River, Ponte D. Luís I (Porto, Portugal)
   startPosition: {
-    lat: 37.8297,
-    lon: -122.4895,
-    altitude: 400,  // meters
-    heading: 225    // degrees clockwise from north (225 = southwest, toward bridge)
+    lat: 41.1406,
+    lon: -8.6097,
+    altitude: 400,  // meters above the bridge
+    heading: 180    // degrees clockwise from north (180 = south, along Douro toward ocean)
   },
 
   // Camera settings
@@ -167,9 +167,8 @@ export const CONFIG = {
 
   // Share settings (for social sharing)
   share: {
-    gameUrl: 'https://fly.alistairmcleay.com',
-    twitterHashtags: ['flysf', 'flightsim', 'sanfrancisco'],
-    twitterVia: 'alistairmcleay',
-    brandingText: 'FLY.ALISTAIRMCLEAY.COM'
+    gameUrl: 'https://fly.porto.com',
+    twitterHashtags: ['flyporto', 'flightsim', 'porto', 'portugal'],
+    brandingText: 'FLY.PORTO.COM'
   }
 };

@@ -1,6 +1,6 @@
-# SF Flight Simulator
+# Fly Porto
 
-A browser-based flight simulator over photorealistic San Francisco, inspired by [fly.pieter.com](https://fly.pieter.com).
+A browser-based flight simulator over photorealistic Porto (Portugal), starting above the Douro River and Ponte D. Luís I, inspired by [fly.pieter.com](https://fly.pieter.com).
 
 **Built with:** Three.js + Google Photorealistic 3D Tiles + Vite
 

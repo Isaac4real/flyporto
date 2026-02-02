@@ -103,9 +103,9 @@ export class TilePreloader {
       if (elapsed < 2000) {
         statusText = 'Connecting to satellite imagery...';
       } else if (elapsed < 4000) {
-        statusText = `Rendering San Francisco... (${this.tileCount} tiles)`;
+        statusText = `Rendering Porto... (${this.tileCount} tiles)`;
       } else if (elapsed < 6000) {
-        statusText = `Loading Golden Gate Bridge... (${this.tileCount} tiles)`;
+        statusText = `Loading Ponte D. Luís I & Douro... (${this.tileCount} tiles)`;
       } else if (elapsed < 8000) {
         statusText = `Enhancing terrain detail... (${this.tileCount} tiles)`;
       } else {

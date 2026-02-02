@@ -76,7 +76,7 @@ setupLighting(scene);
 // NO FALLBACK GROUND PLANE - this was causing the "underwater buildings" bug!
 // The entry screen will hide any gaps until tiles are loaded.
 
-// Initialize tiles renderer (includes ReorientationPlugin for Golden Gate Bridge)
+// Initialize tiles renderer (includes ReorientationPlugin for Porto / Douro)
 const tilesRenderer = createTilesRenderer(camera, renderer);
 scene.add(tilesRenderer.group);
 
@@ -168,7 +168,7 @@ const demoAircraft = createDemoAircraft();
 scene.add(demoAircraft);
 
 // ============================================================================
-// CINEMATIC APPROACH - Slow pan toward Golden Gate Bridge
+// CINEMATIC APPROACH - Slow pan toward Ponte D. Luís I / Douro
 // Tiles load to high quality since camera direction stays consistent
 // ============================================================================
 
@@ -235,7 +235,7 @@ function preloadUpdate() {
   );
   camera.position.copy(cameraPos);
 
-  // Look ahead of aircraft toward the bridge
+  // Look ahead of aircraft toward Ponte D. Luís I / Douro
   const lookTarget = new THREE.Vector3(
     x + direction.x * cinematicCamera.lookAheadDistance,
     y - 20, // Look slightly down toward the ground/bridge

@@ -182,7 +182,7 @@ export function createTilesRenderer(camera, renderer) {
   tilesRenderer.registerPlugin(new TilesFadePlugin());         // Smooth LOD transitions
   tilesRenderer.registerPlugin(new UpdateOnChangePlugin());    // CPU efficiency
 
-  // Reorientation - orients globe so Golden Gate Bridge is at origin with Y-up
+  // Reorientation - orients globe so Porto (Ponte D. Luís I) is at origin with Y-up
   const latRad = CONFIG.startPosition.lat * Math.PI / 180;
   const lonRad = CONFIG.startPosition.lon * Math.PI / 180;
   tilesRenderer.registerPlugin(
