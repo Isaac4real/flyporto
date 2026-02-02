@@ -24,6 +24,7 @@ export class NetworkManager {
     this.autoJoin = options.autoJoin !== false;
     this.hasJoined = false;
     this.pendingJoin = false;
+    this.shouldRejoin = false;
     this.connected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
@@ -100,7 +101,7 @@ export class NetworkManager {
         this.reconnectAttempts = 0;
         this.onConnectionChange?.(true);
 
-        if (this.autoJoin || this.pendingJoin) {
+        if (this.autoJoin || this.pendingJoin || this.shouldRejoin) {
           this.join();
         }
 
@@ -212,6 +213,7 @@ export class NetworkManager {
     }
     this.pendingJoin = false;
     this.hasJoined = true;
+    this.shouldRejoin = true;
     this.send({
       type: 'join',
       id: this.playerId,
