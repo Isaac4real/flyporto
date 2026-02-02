@@ -22,9 +22,9 @@ export class Leaderboard {
     const leaderboard = document.createElement('div');
     leaderboard.id = 'leaderboard';
     leaderboard.style.cssText = `
-      position: absolute;
-      top: 60px;
-      right: 10px;
+      position: fixed;
+      top: calc(var(--top-banner-height, 0px) + 50px);
+      right: 12px;
       background: rgba(0, 0, 0, 0.6);
       border-radius: 8px;
       padding: 10px 15px;
