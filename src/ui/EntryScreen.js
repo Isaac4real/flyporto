@@ -12,8 +12,6 @@ export class EntryScreen {
     this.selectedColor = 'red';
     this.isReady = false;
     this.onReady = null;  // Callback when user clicks "Take Off!"
-    this.onReroll = null;
-    this.callsign = 'Connecting...';
 
     // 3D Preview rendering
     this.previewScene = null;
@@ -53,11 +51,7 @@ export class EntryScreen {
 
         <div class="input-group">
           <label>Callsign</label>
-          <div class="callsign-row">
-            <div class="callsign-note" id="callsign-text">Connecting...</div>
-            <button class="callsign-reroll" id="callsign-reroll" type="button" disabled>New</button>
-          </div>
-          <div class="callsign-error" id="callsign-error"></div>
+          <div class="callsign-note">Assigned automatically when you take off</div>
         </div>
 
         <div class="aircraft-selection">
@@ -215,13 +209,6 @@ export class EntryScreen {
         letter-spacing: 0.5px;
       }
 
-      .callsign-row {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 10px;
-        align-items: center;
-      }
-
       .callsign-note {
         width: 100%;
         padding: 12px 14px;
@@ -232,38 +219,6 @@ export class EntryScreen {
         font-size: 14px;
         font-weight: 500;
         box-sizing: border-box;
-      }
-
-      .callsign-reroll {
-        padding: 12px 14px;
-        border-radius: 10px;
-        border: 2px solid rgba(255, 255, 255, 0.15);
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.85);
-        font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.6px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-
-      .callsign-reroll:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.16);
-        border-color: rgba(255, 255, 255, 0.3);
-      }
-
-      .callsign-reroll:disabled {
-        cursor: not-allowed;
-        color: rgba(255, 255, 255, 0.35);
-        background: rgba(255, 255, 255, 0.05);
-      }
-
-      .callsign-error {
-        min-height: 16px;
-        margin-top: 6px;
-        font-size: 11px;
-        color: rgba(255, 120, 120, 0.9);
       }
 
       .aircraft-selection {
@@ -647,14 +602,6 @@ export class EntryScreen {
     // Fly button
     const flyButton = document.getElementById('fly-button');
     flyButton.addEventListener('click', () => this.triggerStart());
-
-    // Callsign reroll
-    const rerollButton = document.getElementById('callsign-reroll');
-    rerollButton.addEventListener('click', () => {
-      if (this.onReroll) {
-        this.onReroll();
-      }
-    });
   }
 
   /**
@@ -719,30 +666,6 @@ export class EntryScreen {
     }
   }
 
-  /**
-   * Update callsign display
-   */
-  setCallsign(name) {
-    this.callsign = name;
-    const callsignText = document.getElementById('callsign-text');
-    const rerollButton = document.getElementById('callsign-reroll');
-    if (callsignText) {
-      callsignText.textContent = name || 'Connecting...';
-    }
-    if (rerollButton) {
-      rerollButton.disabled = !name;
-    }
-  }
-
-  /**
-   * Show entry screen error
-   */
-  showError(message) {
-    const errorEl = document.getElementById('callsign-error');
-    if (errorEl) {
-      errorEl.textContent = message || '';
-    }
-  }
 
   /**
    * Hide the entry screen with animation

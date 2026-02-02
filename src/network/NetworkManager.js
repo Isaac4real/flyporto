@@ -13,7 +13,6 @@ export class NetworkManager {
    * @param {string} url - WebSocket server URL (ws:// or wss://)
    * @param {Object} [options]
    * @param {boolean} [options.autoJoin=true] - Whether to send join on connect
-   * @param {boolean} [options.autoConnect=true] - Whether to connect immediately
    */
   constructor(url, options = {}) {
     this.url = url;
@@ -24,7 +23,6 @@ export class NetworkManager {
     this.autoJoin = options.autoJoin !== false;
     this.hasJoined = false;
     this.pendingJoin = false;
-    this.pendingCallsign = false;
     this.connected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
@@ -60,10 +58,8 @@ export class NetworkManager {
       }
     });
 
-    const autoConnect = options.autoConnect !== false;
-    if (autoConnect) {
-      this.connect();
-    }
+    // Connect immediately
+    this.connect();
   }
 
   /**
@@ -101,12 +97,8 @@ export class NetworkManager {
         this.reconnectAttempts = 0;
         this.onConnectionChange?.(true);
 
-        if (this.autoJoin) {
+        if (this.autoJoin || this.pendingJoin) {
           this.join();
-        } else if (this.pendingJoin) {
-          this.join();
-        } else {
-          this.requestCallsign();
         }
 
         // Start keepalive ping every 30 seconds
@@ -164,14 +156,6 @@ export class NetworkManager {
         this.onPlayerLeft?.(msg.id);
         break;
 
-      case 'assign_name':
-        if (msg.name) {
-          this.playerName = msg.name;
-          this.onNameUpdate?.(msg.name);
-          console.log('[Network] Assigned callsign:', msg.name);
-        }
-        break;
-
       case 'join_accepted':
         if (msg.id === this.playerId && msg.name) {
           this.playerName = msg.name;
@@ -204,18 +188,6 @@ export class NetworkManager {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     }
-  }
-
-  /**
-   * Request a server-assigned callsign (pre-join).
-   */
-  requestCallsign() {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this.pendingCallsign = true;
-      return;
-    }
-    this.pendingCallsign = false;
-    this.send({ type: 'assign_name' });
   }
 
   /**
@@ -415,6 +387,5 @@ export class NetworkManager {
     this.connected = false;
     this.hasJoined = false;
     this.pendingJoin = false;
-    this.pendingCallsign = false;
   }
 }

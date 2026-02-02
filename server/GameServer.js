@@ -15,15 +15,11 @@ export class GameServer {
     this.wss = new WebSocketServer({ port });
     this.players = new Map(); // id -> { ws, name, position, rotation, velocity, throttle, lastUpdate }
     this.joinRateLimits = new Map(); // ip -> { windowStart, count, lastJoinAt }
-    this.assignedNames = new WeakMap(); // ws -> assigned callsign (pre-join)
-    this.lastAssignAt = new WeakMap(); // ws -> timestamp
-    this.assignedNameSet = new Set(); // track pre-join names to avoid duplicates
 
     // Join rate limit settings (per IP)
     this.joinWindowMs = Number(process.env.JOIN_WINDOW_MS || 10 * 60 * 1000); // 10 min
     this.joinMaxPerWindow = Number(process.env.JOIN_MAX_PER_WINDOW || 5);
     this.joinCooldownMs = Number(process.env.JOIN_COOLDOWN_MS || 10000); // 10 sec
-    this.assignCooldownMs = Number(process.env.ASSIGN_COOLDOWN_MS || 2000); // 2 sec
 
     // 10Hz broadcast loop
     this.broadcastInterval = setInterval(() => this.broadcast(), 100);
@@ -71,11 +67,6 @@ export class GameServer {
     });
 
     ws.on('close', () => {
-      const assignedName = this.assignedNames.get(ws);
-      if (assignedName) {
-        this.assignedNames.delete(ws);
-        this.assignedNameSet.delete(assignedName);
-      }
       if (playerId) {
         const player = this.players.get(playerId);
         const name = player?.name || 'Unknown';
@@ -91,36 +82,6 @@ export class GameServer {
   }
 
   handleMessage(ws, msg, playerId, setPlayerId, ip) {
-    if (msg.type === 'assign_name') {
-      if (!this.allowAssign(ws)) {
-        try {
-          ws.send(JSON.stringify({
-            type: 'error',
-            code: 'assign_rate_limited',
-            message: 'Please wait before requesting a new callsign.'
-          }));
-        } catch (e) {
-          // Ignore send errors
-        }
-        return;
-      }
-
-      const name = this.generateCallsign();
-      const previousName = this.assignedNames.get(ws);
-      if (previousName) {
-        this.assignedNameSet.delete(previousName);
-      }
-      this.assignedNames.set(ws, name);
-      this.assignedNameSet.add(name);
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify({
-          type: 'assign_name',
-          name
-        }));
-      }
-      return;
-    }
-
     if (msg.type === 'join') {
       if (!this.allowJoin(ip)) {
         console.log(`[JoinRateLimit] Rejecting join from ${ip}`);
@@ -160,13 +121,7 @@ export class GameServer {
       setPlayerId(playerId);
 
       // Assign server-generated callsign (ignore client-provided name)
-      const preassigned = this.assignedNames.get(ws);
-      const name = preassigned || this.generateCallsign();
-      if (preassigned) {
-        this.assignedNames.delete(ws);
-        this.assignedNameSet.delete(preassigned);
-      }
-      this.assignedNames.delete(ws);
+      const name = this.generateCallsign();
 
       // Extract aircraft customization
       const planeType = this.sanitizePlaneType(msg.planeType) || 'jet1';
@@ -268,19 +223,6 @@ export class GameServer {
   }
 
   /**
-   * Per-connection callsign assignment cooldown.
-   */
-  allowAssign(ws) {
-    const now = Date.now();
-    const last = this.lastAssignAt.get(ws) || 0;
-    if (now - last < this.assignCooldownMs) {
-      return false;
-    }
-    this.lastAssignAt.set(ws, now);
-    return true;
-  }
-
-  /**
    * Sanitize plane type to only allow valid types
    */
   sanitizePlaneType(planeType) {
@@ -329,7 +271,6 @@ export class GameServer {
     for (const player of this.players.values()) {
       if (player.name === name) return true;
     }
-    if (this.assignedNameSet.has(name)) return true;
     return false;
   }
 
