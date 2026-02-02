@@ -218,7 +218,8 @@ export class TouchInput {
     return {
       pitch: this.pitch,
       roll: this.roll,
-      throttle: this.throttle
+      throttle: this.throttle,
+      throttleActive: this.throttleInput !== 0
     };
   }
 

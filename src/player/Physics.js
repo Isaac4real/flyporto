@@ -49,7 +49,21 @@ function lerp(current, target, t) {
  */
 export function updatePhysics(aircraft, input, deltaTime) {
   // 1. Smooth throttle response (target -> actual)
-  aircraft.targetThrottle = input.throttle;
+  const throttleActive = input.throttleActive ?? true;
+  let targetThrottle = input.throttle;
+  if (throttleActive) {
+    aircraft.trimSpeed = aircraft.speed;
+  } else {
+    const holdSpeed = Math.max(0, aircraft.trimSpeed ?? (PHYSICS.cruiseSpeed ?? aircraft.speed));
+    const drag = PHYSICS.drag ?? 0;
+    const throttleAccel = PHYSICS.throttleAccel ?? 20;
+    const holdGain = PHYSICS.speedHoldGain ?? 0.6;
+    const baseThrottle = throttleAccel > 0 ? (drag * holdSpeed) / throttleAccel : 0;
+    const normalizedError = holdSpeed > 1 ? (holdSpeed - aircraft.speed) / holdSpeed : 0;
+    targetThrottle = baseThrottle + normalizedError * holdGain;
+    targetThrottle = Math.max(0, Math.min(1, targetThrottle));
+  }
+  aircraft.targetThrottle = targetThrottle;
   aircraft.actualThrottle = smoothDamp(
     aircraft.actualThrottle,
     aircraft.targetThrottle,

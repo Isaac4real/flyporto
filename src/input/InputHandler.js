@@ -10,6 +10,7 @@ export class InputHandler {
     this.keyboard = keyboardInput;
     this.touch = touchInput;
     this.throttle = 0.4;  // Track throttle internally (0-1 range)
+    this.throttleActive = false;
 
     // Fire state tracking
     this.firePressed = false;
@@ -25,6 +26,7 @@ export class InputHandler {
     const throttleRate = CONFIG.physics?.throttleChangeRate ?? 1.0;
     const throttleUp = this.keyboard.isActionActive('throttleUp');
     const throttleDown = this.keyboard.isActionActive('throttleDown');
+    this.throttleActive = throttleUp || throttleDown;
 
     if (throttleUp && !throttleDown) {
       this.throttle = Math.min(1, this.throttle + deltaTime * throttleRate);
@@ -87,6 +89,7 @@ export class InputHandler {
 
     // Get throttle value
     let throttle = this.throttle;
+    let throttleActive = this.throttleActive;
 
     // Merge with touch input if active (highest priority on mobile)
     if (this.touch && this.touch.enabled) {
@@ -100,6 +103,7 @@ export class InputHandler {
 
       // Use touch throttle when touch is enabled
       throttle = touchState.throttle;
+      throttleActive = touchState.throttleActive;
     }
 
     return {
@@ -107,6 +111,7 @@ export class InputHandler {
       roll,
       yaw,
       throttle,  // Absolute value (0-1)
+      throttleActive,
       autoLevel: false
     };
   }

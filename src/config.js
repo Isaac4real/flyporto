@@ -71,6 +71,7 @@ export const CONFIG = {
     inputSmoothRate: 12.0,   // Smooth but responsive
     autoLevelRate: 3.0,      // Reserved for future auto-leveling
     throttleSmoothRate: 4.0, // How fast throttle responds
+    speedHoldGain: 0.6,      // Auto-throttle gain when no throttle input
 
     // Response curve (reduces sensitivity near center for precision)
     inputCurvePower: 0.15,   // Nearly linear for direct control feel

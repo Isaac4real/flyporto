@@ -58,6 +58,7 @@ export class Aircraft {
     this.yaw = yaw;    // radians (heading)
     this.speed = CONFIG.physics?.startSpeed ?? 60; // m/s
     this.verticalSpeed = 0; // m/s
+    this.trimSpeed = this.speed;
 
     // Derived velocity (updated in physics)
     this.velocity = new THREE.Vector3(
@@ -284,6 +285,7 @@ export class Aircraft {
     this.yaw = yaw;
     this.speed = speed;
     this.verticalSpeed = 0;
+    this.trimSpeed = speed;
 
     // Set velocity in forward direction
     this.velocity.copy(direction).multiplyScalar(speed);
