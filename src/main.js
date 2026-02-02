@@ -261,6 +261,14 @@ preloadUpdate();
 // ============================================================================
 
 const entryScreen = new EntryScreen();
+const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
+const networkManager = new NetworkManager(wsUrl, { autoJoin: false, autoConnect: false });
+
+networkManager.onNameUpdate = (name) => {
+  entryScreen.setCallsign(name);
+};
+
+networkManager.connect();
 
 // Refresh preview when models finish loading (fixes initial fallback issue)
 modelsLoadPromise.then(() => {
@@ -402,10 +410,9 @@ function startGame(planeType, planeColor) {
 
   console.log('[Game] Stage 18 tile streaming systems initialized');
 
-  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
-  const networkManager = new NetworkManager(wsUrl);
   networkManager.setPlaneType(planeType);
   networkManager.setPlaneColor(planeColor);
+  networkManager.join();
 
   // Initialize player sync for rendering remote players
   const playerSync = new PlayerSync(scene);

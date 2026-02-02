@@ -15,6 +15,8 @@ export class GameServer {
     this.wss = new WebSocketServer({ port });
     this.players = new Map(); // id -> { ws, name, position, rotation, velocity, throttle, lastUpdate }
     this.joinRateLimits = new Map(); // ip -> { windowStart, count, lastJoinAt }
+    this.assignedNames = new WeakMap(); // ws -> assigned callsign (pre-join)
+    this.assignedNameSet = new Set(); // track pre-join names to avoid duplicates
 
     // Join rate limit settings (per IP)
     this.joinWindowMs = Number(process.env.JOIN_WINDOW_MS || 10 * 60 * 1000); // 10 min
@@ -43,6 +45,12 @@ export class GameServer {
     let lastReset = Date.now();
 
     console.log(`[Connection] New connection from ${ip}`);
+    const assignedName = this.generateCallsign();
+    this.assignedNames.set(ws, assignedName);
+    this.assignedNameSet.add(assignedName);
+    if (ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'assign_name', name: assignedName }));
+    }
 
     ws.on('message', (data) => {
       // Rate limiting
@@ -67,6 +75,11 @@ export class GameServer {
     });
 
     ws.on('close', () => {
+      const preassigned = this.assignedNames.get(ws);
+      if (preassigned) {
+        this.assignedNames.delete(ws);
+        this.assignedNameSet.delete(preassigned);
+      }
       if (playerId) {
         const player = this.players.get(playerId);
         const name = player?.name || 'Unknown';
@@ -121,7 +134,12 @@ export class GameServer {
       setPlayerId(playerId);
 
       // Assign server-generated callsign (ignore client-provided name)
-      const name = this.generateCallsign();
+      const preassigned = this.assignedNames.get(ws);
+      const name = preassigned || this.generateCallsign();
+      if (preassigned) {
+        this.assignedNames.delete(ws);
+        this.assignedNameSet.delete(preassigned);
+      }
 
       // Extract aircraft customization
       const planeType = this.sanitizePlaneType(msg.planeType) || 'jet1';
@@ -271,6 +289,7 @@ export class GameServer {
     for (const player of this.players.values()) {
       if (player.name === name) return true;
     }
+    if (this.assignedNameSet.has(name)) return true;
     return false;
   }
 

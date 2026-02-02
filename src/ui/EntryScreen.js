@@ -51,7 +51,7 @@ export class EntryScreen {
 
         <div class="input-group">
           <label>Callsign</label>
-          <div class="callsign-note">Assigned automatically when you take off</div>
+          <div class="callsign-note" id="callsign-text">Connecting...</div>
         </div>
 
         <div class="aircraft-selection">
@@ -602,6 +602,16 @@ export class EntryScreen {
     // Fly button
     const flyButton = document.getElementById('fly-button');
     flyButton.addEventListener('click', () => this.triggerStart());
+  }
+
+  /**
+   * Update callsign display
+   */
+  setCallsign(name) {
+    const callsignText = document.getElementById('callsign-text');
+    if (callsignText) {
+      callsignText.textContent = name || 'Connecting...';
+    }
   }
 
   /**

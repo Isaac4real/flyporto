@@ -13,6 +13,7 @@ export class NetworkManager {
    * @param {string} url - WebSocket server URL (ws:// or wss://)
    * @param {Object} [options]
    * @param {boolean} [options.autoJoin=true] - Whether to send join on connect
+   * @param {boolean} [options.autoConnect=true] - Whether to connect immediately
    */
   constructor(url, options = {}) {
     this.url = url;
@@ -58,8 +59,10 @@ export class NetworkManager {
       }
     });
 
-    // Connect immediately
-    this.connect();
+    const autoConnect = options.autoConnect !== false;
+    if (autoConnect) {
+      this.connect();
+    }
   }
 
   /**
@@ -154,6 +157,14 @@ export class NetworkManager {
       case 'player_left':
         console.log('[Network] Player left:', msg.id);
         this.onPlayerLeft?.(msg.id);
+        break;
+
+      case 'assign_name':
+        if (msg.name) {
+          this.playerName = msg.name;
+          this.onNameUpdate?.(msg.name);
+          console.log('[Network] Assigned callsign:', msg.name);
+        }
         break;
 
       case 'join_accepted':

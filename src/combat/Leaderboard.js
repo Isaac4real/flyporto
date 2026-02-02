@@ -46,6 +46,16 @@ export class Leaderboard {
     title.textContent = 'LEADERBOARD';
     leaderboard.appendChild(title);
 
+    // Local player line
+    this.youLine = document.createElement('div');
+    this.youLine.style.cssText = `
+      font-size: 12px;
+      color: rgba(255,255,255,0.85);
+      margin-bottom: 6px;
+    `;
+    this.youLine.textContent = 'You: Connecting...';
+    leaderboard.appendChild(this.youLine);
+
     // Entries container
     this.entriesContainer = document.createElement('div');
     leaderboard.appendChild(this.entriesContainer);
@@ -60,6 +70,10 @@ export class Leaderboard {
    */
   update(scores, players) {
     const myId = this.networkManager.getPlayerId();
+    const myName = this.networkManager.getPlayerName();
+    if (this.youLine) {
+      this.youLine.textContent = `You: ${myName || 'Connecting...'}`;
+    }
 
     // Build sorted array of entries
     const entries = [];
