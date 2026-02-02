@@ -18,6 +18,14 @@ export class GameServer {
     this.assignedNames = new WeakMap(); // ws -> assigned callsign (pre-join)
     this.assignedNameSet = new Set(); // track pre-join names to avoid duplicates
 
+    // IP blocking - load from environment variable (comma-separated)
+    this.blockedIPs = new Set(
+      (process.env.BLOCKED_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean)
+    );
+    // Auto-block threshold: IPs that exceed rate limits this many times get blocked
+    this.autoBlockThreshold = Number(process.env.AUTO_BLOCK_THRESHOLD || 10);
+    this.rateLimitViolations = new Map(); // ip -> count
+
     // Join rate limit settings (per IP)
     this.joinWindowMs = Number(process.env.JOIN_WINDOW_MS || 10 * 60 * 1000); // 10 min
     this.joinMaxPerWindow = Number(process.env.JOIN_MAX_PER_WINDOW || 5);
@@ -36,10 +44,22 @@ export class GameServer {
     console.log(`[GameServer] Player timeout: 10 seconds`);
     console.log(`[GameServer] Rate limit: 30 messages/second (combat enabled)`);
     console.log(`[GameServer] Join rate limit: ${this.joinMaxPerWindow}/${Math.round(this.joinWindowMs / 60000)}min, cooldown ${Math.round(this.joinCooldownMs / 1000)}s`);
+    console.log(`[GameServer] Auto-block threshold: ${this.autoBlockThreshold} violations`);
+    if (this.blockedIPs.size > 0) {
+      console.log(`[GameServer] Blocked IPs: ${this.blockedIPs.size} loaded from config`);
+    }
   }
 
   handleConnection(ws, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    // Check if IP is blocked
+    if (this.isIPBlocked(ip)) {
+      console.log(`[Blocked] Rejected connection from blocked IP: ${ip}`);
+      ws.close(1008, 'Connection refused');
+      return;
+    }
+
     let playerId = null;
     let messageCount = 0;
     let lastReset = Date.now();
@@ -212,6 +232,32 @@ export class GameServer {
   }
 
   /**
+   * Check if an IP is blocked (handles x-forwarded-for with multiple IPs)
+   */
+  isIPBlocked(ip) {
+    if (!ip) return false;
+    // x-forwarded-for can contain multiple IPs, check all of them
+    const ips = ip.split(',').map(i => i.trim());
+    return ips.some(i => this.blockedIPs.has(i));
+  }
+
+  /**
+   * Record a rate limit violation and potentially auto-block
+   */
+  recordViolation(ip) {
+    if (!ip) return;
+    // Get first IP from x-forwarded-for (the client IP)
+    const clientIP = ip.split(',')[0].trim();
+    const count = (this.rateLimitViolations.get(clientIP) || 0) + 1;
+    this.rateLimitViolations.set(clientIP, count);
+
+    if (count >= this.autoBlockThreshold) {
+      this.blockedIPs.add(clientIP);
+      console.log(`[AutoBlock] IP ${clientIP} blocked after ${count} violations`);
+    }
+  }
+
+  /**
    * Per-IP join rate limiting to protect tile/API usage.
    */
   allowJoin(ip) {
@@ -226,6 +272,7 @@ export class GameServer {
 
     // Cooldown between joins
     if (now - entry.lastJoinAt < this.joinCooldownMs) {
+      this.recordViolation(ip);
       return false;
     }
 
@@ -237,7 +284,11 @@ export class GameServer {
 
     entry.count += 1;
     entry.lastJoinAt = now;
-    return entry.count <= this.joinMaxPerWindow;
+    const allowed = entry.count <= this.joinMaxPerWindow;
+    if (!allowed) {
+      this.recordViolation(ip);
+    }
+    return allowed;
   }
 
   /**
