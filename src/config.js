@@ -30,12 +30,12 @@ export const CONFIG = {
     fovDamping: 10
   },
 
-  // 3D Tiles renderer settings - OPTIMIZED for Stage 16 + Stage 18
+  // 3D Tiles renderer settings - EMERGENCY: reduced quality for rate limiting
   tiles: {
-    errorTarget: 2,              // Base quality (managed by AdaptiveQuality at runtime)
+    errorTarget: 12,             // EMERGENCY: lower quality = fewer API requests
     errorThreshold: Infinity,    // Prevents tiles disappearing during camera movement
-    maxDownloadJobs: 60,         // Increased from 50 for faster tile loading
-    maxParseJobs: 10,            // Keep - GPU parsing is the bottleneck
+    maxDownloadJobs: 20,         // EMERGENCY: throttle requests (was 60)
+    maxParseJobs: 5,             // Reduced to ease load
     cacheMinBytes: 400 * 1e6,    // 400MB - increased from 250MB
     cacheMaxBytes: 700 * 1e6,    // 700MB - increased from 500MB
 
@@ -136,11 +136,14 @@ export const CONFIG = {
   // Dynamic fog (Stage 18)
   // Hides unloaded tiles at the horizon
   fog: {
-    enabled: false,
-    baseFogNear: 4000,          // Start fog at 4km when slow
-    baseFogFar: 10000,          // Full fog at 10km when slow
-    minFogNear: 1500,           // Closest fog starts (when fast)
-    minFogFar: 4000             // Closest full fog (when fast)
+    enabled: true,
+    baseFogNear: 2500,          // Start fog closer to hide tile gaps
+    baseFogFar: 7000,           // Full fog at 7km when slow
+    minFogNear: 700,            // Closest fog starts (when fast)
+    minFogFar: 2000,            // Closest full fog (when fast)
+    speedThreshold: 40,         // Pull fog in earlier at higher speeds
+    queueThreshold: 8,          // Pull fog in sooner when queue backs up
+    smoothingRate: 3.5          // Faster response to loading spikes
   },
 
   // Mouse aim settings (War Thunder-style mouse flight control)

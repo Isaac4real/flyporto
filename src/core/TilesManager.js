@@ -1,6 +1,7 @@
 import { TilesRenderer } from '3d-tiles-renderer';
 import {
   GoogleCloudAuthPlugin,
+  CesiumIonAuthPlugin,
   TilesFadePlugin,
   TileCompressionPlugin,
   UpdateOnChangePlugin,
@@ -10,6 +11,7 @@ import { CONFIG } from '../config.js';
 
 /**
  * Create and configure the TilesRenderer for Google 3D Tiles
+ * Supports both direct Google API and Cesium Ion proxy
  * @param {THREE.PerspectiveCamera} camera
  * @param {THREE.WebGLRenderer} renderer
  * @returns {TilesRenderer}
@@ -17,18 +19,32 @@ import { CONFIG } from '../config.js';
 export function createTilesRenderer(camera, renderer) {
   const tilesRenderer = new TilesRenderer();
 
-  // Authentication - API key must be VITE_ prefixed for Vite to expose it
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  if (!apiKey || apiKey === 'your_api_key_here') {
-    console.error('Missing or invalid VITE_GOOGLE_MAPS_API_KEY in .env file');
-  }
+  // Check which auth method to use
+  const cesiumToken = import.meta.env.VITE_CESIUM_ION_TOKEN;
+  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-  tilesRenderer.registerPlugin(
-    new GoogleCloudAuthPlugin({
-      apiToken: apiKey,
-      autoRefreshToken: true
-    })
-  );
+  if (cesiumToken && cesiumToken !== 'your_cesium_token_here') {
+    // Use Cesium Ion (proxies Google 3D Tiles with separate rate limits)
+    console.log('[Tiles] Using Cesium Ion for Google 3D Tiles');
+    tilesRenderer.registerPlugin(
+      new CesiumIonAuthPlugin({
+        assetId: '2275207',  // Google Photorealistic 3D Tiles on Cesium Ion
+        apiToken: cesiumToken,
+        autoRefreshToken: true
+      })
+    );
+  } else if (googleApiKey && googleApiKey !== 'your_api_key_here') {
+    // Use Google API directly
+    console.log('[Tiles] Using Google Maps API directly');
+    tilesRenderer.registerPlugin(
+      new GoogleCloudAuthPlugin({
+        apiToken: googleApiKey,
+        autoRefreshToken: true
+      })
+    );
+  } else {
+    console.error('[Tiles] No valid API key found! Set VITE_CESIUM_ION_TOKEN or VITE_GOOGLE_MAPS_API_KEY');
+  }
 
   // Performance plugins
   tilesRenderer.registerPlugin(new TileCompressionPlugin());   // GPU memory savings
