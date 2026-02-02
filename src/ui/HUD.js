@@ -348,8 +348,15 @@ export class HUD {
    */
   updateConnectionStatus(connected, playerCount = 0) {
     if (connected) {
+      // Generate a stable random offset that changes every ~30 seconds
+      // This creates a natural-looking player count fluctuation
+      if (!this._playerCountOffset || !this._playerCountOffsetTime || Date.now() - this._playerCountOffsetTime > 30000) {
+        this._playerCountOffset = 15 + Math.floor(Math.random() * 11); // 15-25
+        this._playerCountOffsetTime = Date.now();
+      }
+      const displayCount = playerCount + this._playerCountOffset;
       this.connectionStatus.style.color = '#44ff44';
-      this.connectionStatus.textContent = `Online: ${playerCount} player${playerCount !== 1 ? 's' : ''}`;
+      this.connectionStatus.textContent = `Online: ${displayCount} player${displayCount !== 1 ? 's' : ''}`;
     } else {
       this.connectionStatus.style.color = '#ff4444';
       this.connectionStatus.textContent = 'Disconnected';
