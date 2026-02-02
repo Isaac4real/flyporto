@@ -14,6 +14,12 @@ export class GameServer {
   constructor(port) {
     this.wss = new WebSocketServer({ port });
     this.players = new Map(); // id -> { ws, name, position, rotation, velocity, throttle, lastUpdate }
+    this.joinRateLimits = new Map(); // ip -> { windowStart, count, lastJoinAt }
+
+    // Join rate limit settings (per IP)
+    this.joinWindowMs = Number(process.env.JOIN_WINDOW_MS || 10 * 60 * 1000); // 10 min
+    this.joinMaxPerWindow = Number(process.env.JOIN_MAX_PER_WINDOW || 5);
+    this.joinCooldownMs = Number(process.env.JOIN_COOLDOWN_MS || 10000); // 10 sec
 
     // 10Hz broadcast loop
     this.broadcastInterval = setInterval(() => this.broadcast(), 100);
@@ -27,6 +33,7 @@ export class GameServer {
     console.log(`[GameServer] Broadcast rate: 10Hz (100ms)`);
     console.log(`[GameServer] Player timeout: 10 seconds`);
     console.log(`[GameServer] Rate limit: 30 messages/second (combat enabled)`);
+    console.log(`[GameServer] Join rate limit: ${this.joinMaxPerWindow}/${Math.round(this.joinWindowMs / 60000)}min, cooldown ${Math.round(this.joinCooldownMs / 1000)}s`);
   }
 
   handleConnection(ws, req) {
@@ -53,7 +60,7 @@ export class GameServer {
 
       try {
         const msg = JSON.parse(data);
-        this.handleMessage(ws, msg, playerId, (id) => { playerId = id; });
+        this.handleMessage(ws, msg, playerId, (id) => { playerId = id; }, ip);
       } catch (e) {
         console.error(`[Error] Invalid message from ${ip}:`, e.message);
       }
@@ -74,8 +81,23 @@ export class GameServer {
     });
   }
 
-  handleMessage(ws, msg, playerId, setPlayerId) {
+  handleMessage(ws, msg, playerId, setPlayerId, ip) {
     if (msg.type === 'join') {
+      if (!this.allowJoin(ip)) {
+        console.log(`[JoinRateLimit] Rejecting join from ${ip}`);
+        try {
+          ws.send(JSON.stringify({
+            type: 'error',
+            code: 'join_rate_limited',
+            message: 'Join rate limit exceeded. Please wait and try again.'
+          }));
+        } catch (e) {
+          // Ignore send errors - connection may already be closing
+        }
+        ws.close(1008, 'Join rate limit exceeded');
+        return;
+      }
+
       // Validate player ID
       if (!msg.id || typeof msg.id !== 'string' || msg.id.length < 5 || msg.id.length > 50) {
         console.log('[Join] Invalid player ID rejected');
@@ -162,6 +184,35 @@ export class GameServer {
     if (msg.type === 'hit' && playerId) {
       this.handleHit(playerId, msg.targetId);
     }
+  }
+
+  /**
+   * Per-IP join rate limiting to protect tile/API usage.
+   */
+  allowJoin(ip) {
+    if (!ip) return true;
+    const now = Date.now();
+    const entry = this.joinRateLimits.get(ip);
+
+    if (!entry) {
+      this.joinRateLimits.set(ip, { windowStart: now, count: 1, lastJoinAt: now });
+      return true;
+    }
+
+    // Cooldown between joins
+    if (now - entry.lastJoinAt < this.joinCooldownMs) {
+      return false;
+    }
+
+    // Reset window
+    if (now - entry.windowStart > this.joinWindowMs) {
+      entry.windowStart = now;
+      entry.count = 0;
+    }
+
+    entry.count += 1;
+    entry.lastJoinAt = now;
+    return entry.count <= this.joinMaxPerWindow;
   }
 
   /**
