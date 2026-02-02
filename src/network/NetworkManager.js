@@ -11,13 +11,17 @@
 export class NetworkManager {
   /**
    * @param {string} url - WebSocket server URL (ws:// or wss://)
+   * @param {Object} [options]
+   * @param {boolean} [options.autoJoin=true] - Whether to send join on connect
    */
-  constructor(url) {
+  constructor(url, options = {}) {
     this.url = url;
     this.ws = null;
     this.playerId = this.getOrCreatePlayerId();
     // Assigned by server after join
     this.playerName = 'Pilot';
+    this.autoJoin = options.autoJoin !== false;
+    this.hasJoined = false;
     this.connected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
@@ -92,13 +96,11 @@ export class NetworkManager {
         this.reconnectAttempts = 0;
         this.onConnectionChange?.(true);
 
-        // Send join message with aircraft customization
-        this.send({
-          type: 'join',
-          id: this.playerId,
-          planeType: this.planeType,
-          planeColor: this.planeColor
-        });
+        if (this.autoJoin) {
+          this.join();
+        } else {
+          this.requestCallsign();
+        }
 
         // Start keepalive ping every 30 seconds
         this.startPingInterval();
@@ -155,6 +157,14 @@ export class NetworkManager {
         this.onPlayerLeft?.(msg.id);
         break;
 
+      case 'assign_name':
+        if (msg.name) {
+          this.playerName = msg.name;
+          this.onNameUpdate?.(msg.name);
+          console.log('[Network] Assigned callsign:', msg.name);
+        }
+        break;
+
       case 'join_accepted':
         if (msg.id === this.playerId && msg.name) {
           this.playerName = msg.name;
@@ -187,6 +197,27 @@ export class NetworkManager {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     }
+  }
+
+  /**
+   * Request a server-assigned callsign (pre-join).
+   */
+  requestCallsign() {
+    this.send({ type: 'assign_name' });
+  }
+
+  /**
+   * Send join message with aircraft customization.
+   */
+  join() {
+    if (this.hasJoined) return;
+    this.hasJoined = true;
+    this.send({
+      type: 'join',
+      id: this.playerId,
+      planeType: this.planeType,
+      planeColor: this.planeColor
+    });
   }
 
   /**
@@ -365,5 +396,6 @@ export class NetworkManager {
       this.ws = null;
     }
     this.connected = false;
+    this.hasJoined = false;
   }
 }

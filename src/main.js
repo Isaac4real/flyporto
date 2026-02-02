@@ -261,6 +261,27 @@ preloadUpdate();
 // ============================================================================
 
 const entryScreen = new EntryScreen();
+const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
+const networkManager = new NetworkManager(wsUrl, { autoJoin: false });
+
+networkManager.onNameUpdate = (name) => {
+  entryScreen.setCallsign(name);
+};
+
+networkManager.onError = (msg) => {
+  if (msg?.code === 'join_rate_limited') {
+    entryScreen.showError('Join rate limited. Please wait and try again.');
+  } else if (msg?.code === 'assign_rate_limited') {
+    entryScreen.showError('Please wait before requesting a new callsign.');
+  } else if (msg?.message) {
+    entryScreen.showError(msg.message);
+  }
+};
+
+entryScreen.onReroll = () => {
+  entryScreen.showError('');
+  networkManager.requestCallsign();
+};
 
 // Refresh preview when models finish loading (fixes initial fallback issue)
 modelsLoadPromise.then(() => {
@@ -402,11 +423,9 @@ function startGame(planeType, planeColor) {
 
   console.log('[Game] Stage 18 tile streaming systems initialized');
 
-  // Initialize network manager with player name and aircraft settings
-  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
-  const networkManager = new NetworkManager(wsUrl);
   networkManager.setPlaneType(planeType);
   networkManager.setPlaneColor(planeColor);
+  networkManager.join();
 
   // Initialize player sync for rendering remote players
   const playerSync = new PlayerSync(scene);
@@ -446,6 +465,8 @@ function startGame(planeType, planeColor) {
   networkManager.onError = (msg) => {
     if (msg?.code === 'join_rate_limited') {
       hud.showNotification('Join rate limited. Please wait and try again.');
+    } else if (msg?.code === 'assign_rate_limited') {
+      hud.showNotification('Please wait before requesting a new callsign.');
     } else if (msg?.message) {
       hud.showNotification(msg.message);
     }
