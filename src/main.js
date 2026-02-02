@@ -262,7 +262,7 @@ preloadUpdate();
 
 const entryScreen = new EntryScreen();
 const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
-const networkManager = new NetworkManager(wsUrl, { autoJoin: false });
+const networkManager = new NetworkManager(wsUrl, { autoJoin: false, autoConnect: false });
 
 networkManager.onNameUpdate = (name) => {
   entryScreen.setCallsign(name);
@@ -282,6 +282,9 @@ entryScreen.onReroll = () => {
   entryScreen.showError('');
   networkManager.requestCallsign();
 };
+
+// Connect after handlers are wired to avoid missing early messages
+networkManager.connect();
 
 // Refresh preview when models finish loading (fixes initial fallback issue)
 modelsLoadPromise.then(() => {

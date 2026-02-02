@@ -13,6 +13,7 @@ export class NetworkManager {
    * @param {string} url - WebSocket server URL (ws:// or wss://)
    * @param {Object} [options]
    * @param {boolean} [options.autoJoin=true] - Whether to send join on connect
+   * @param {boolean} [options.autoConnect=true] - Whether to connect immediately
    */
   constructor(url, options = {}) {
     this.url = url;
@@ -59,8 +60,10 @@ export class NetworkManager {
       }
     });
 
-    // Connect immediately
-    this.connect();
+    const autoConnect = options.autoConnect !== false;
+    if (autoConnect) {
+      this.connect();
+    }
   }
 
   /**
