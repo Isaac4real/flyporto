@@ -120,8 +120,8 @@ export class GameServer {
       playerId = msg.id;
       setPlayerId(playerId);
 
-      // Validate name
-      const name = this.sanitizeName(msg.name) || 'Anonymous';
+      // Assign server-generated callsign (ignore client-provided name)
+      const name = this.generateCallsign();
 
       // Extract aircraft customization
       const planeType = this.sanitizePlaneType(msg.planeType) || 'jet1';
@@ -143,6 +143,13 @@ export class GameServer {
       });
 
       console.log(`[Join] ${name} (${playerId}) joined. Players: ${this.players.size}`);
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({
+          type: 'join_accepted',
+          id: playerId,
+          name
+        }));
+      }
       this.broadcastPlayerJoined(playerId, name);
     }
 
@@ -216,15 +223,6 @@ export class GameServer {
   }
 
   /**
-   * Sanitize player name to prevent XSS and limit length
-   */
-  sanitizeName(name) {
-    if (!name || typeof name !== 'string') return null;
-    // Remove HTML tags and limit to 20 characters
-    return name.replace(/<[^>]*>/g, '').trim().slice(0, 20);
-  }
-
-  /**
    * Sanitize plane type to only allow valid types
    */
   sanitizePlaneType(planeType) {
@@ -240,6 +238,40 @@ export class GameServer {
     const validColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
     if (!planeColor || typeof planeColor !== 'string') return null;
     return validColors.includes(planeColor) ? planeColor : null;
+  }
+
+  /**
+   * Generate a short, safe callsign (ASCII, <= 20 chars).
+   */
+  generateCallsign() {
+    const adjectives = [
+      'Sky', 'Swift', 'Vast', 'Iron', 'Nova', 'Aero', 'Blue', 'Red',
+      'Gold', 'Lone', 'Storm', 'Rapid', 'Clear', 'Bright', 'Steel'
+    ];
+    const nouns = [
+      'Falcon', 'Eagle', 'Hawk', 'Raven', 'Viper', 'Comet', 'Meteor',
+      'Arrow', 'Blade', 'Flare', 'Cloud', 'Wasp', 'Drake', 'Jet'
+    ];
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const noun = nouns[Math.floor(Math.random() * nouns.length)];
+      const number = Math.floor(Math.random() * 900) + 100; // 100-999
+      const name = `${adj}${noun}-${number}`;
+      if (!this.isCallsignTaken(name)) {
+        return name;
+      }
+    }
+
+    // Fallback - ensure uniqueness even under heavy load
+    return `Pilot-${Math.floor(Math.random() * 9000) + 1000}`;
+  }
+
+  isCallsignTaken(name) {
+    for (const player of this.players.values()) {
+      if (player.name === name) return true;
+    }
+    return false;
   }
 
   /**

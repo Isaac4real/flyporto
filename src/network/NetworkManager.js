@@ -2,7 +2,7 @@
  * NetworkManager - handles WebSocket connection to multiplayer game server
  *
  * Features:
- * - Auto-connect on initialization (or deferred if playerName provided)
+ * - Auto-connect on initialization
  * - Auto-reconnect with exponential backoff
  * - Throttled position updates (10Hz)
  * - Persistent player ID (localStorage)
@@ -11,18 +11,13 @@
 export class NetworkManager {
   /**
    * @param {string} url - WebSocket server URL (ws:// or wss://)
-   * @param {string} [playerName] - Optional player name (used in join message, persisted to localStorage)
    */
-  constructor(url, playerName = null) {
+  constructor(url) {
     this.url = url;
     this.ws = null;
     this.playerId = this.getOrCreatePlayerId();
-    // Use provided name or fall back to stored/generated name
-    this.playerName = playerName || this.getOrCreatePlayerName();
-    // If a name was provided, save it
-    if (playerName) {
-      this.setPlayerName(playerName);
-    }
+    // Assigned by server after join
+    this.playerName = 'Pilot';
     this.connected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
@@ -38,6 +33,8 @@ export class NetworkManager {
     this.onPlayerLeft = null;
     this.onConnectionChange = null;
     this.onPingUpdate = null;
+    this.onNameUpdate = null;
+    this.onError = null;
 
     // Position send throttling (10Hz = 100ms intervals)
     this.lastSendTime = 0;
@@ -78,23 +75,6 @@ export class NetworkManager {
   }
 
   /**
-   * Get or create player name from localStorage
-   */
-  getOrCreatePlayerName() {
-    try {
-      let name = localStorage.getItem('flysf-player-name');
-      if (!name) {
-        name = 'Pilot-' + Math.floor(Math.random() * 9999);
-        localStorage.setItem('flysf-player-name', name);
-      }
-      return name;
-    } catch (e) {
-      // localStorage may be disabled (private browsing)
-      return 'Pilot-' + Math.floor(Math.random() * 9999);
-    }
-  }
-
-  /**
    * Connect to WebSocket server
    */
   connect() {
@@ -116,7 +96,6 @@ export class NetworkManager {
         this.send({
           type: 'join',
           id: this.playerId,
-          name: this.playerName,
           planeType: this.planeType,
           planeColor: this.planeColor
         });
@@ -174,6 +153,18 @@ export class NetworkManager {
       case 'player_left':
         console.log('[Network] Player left:', msg.id);
         this.onPlayerLeft?.(msg.id);
+        break;
+
+      case 'join_accepted':
+        if (msg.id === this.playerId && msg.name) {
+          this.playerName = msg.name;
+          this.onNameUpdate?.(msg.name);
+          console.log('[Network] Assigned callsign:', msg.name);
+        }
+        break;
+
+      case 'error':
+        this.onError?.(msg);
         break;
 
       case 'pong':
@@ -320,18 +311,6 @@ export class NetworkManager {
    */
   getPlayerName() {
     return this.playerName;
-  }
-
-  /**
-   * Set player name (persists to localStorage)
-   */
-  setPlayerName(name) {
-    this.playerName = name;
-    try {
-      localStorage.setItem('flysf-player-name', name);
-    } catch (e) {
-      // localStorage may be disabled
-    }
   }
 
   /**

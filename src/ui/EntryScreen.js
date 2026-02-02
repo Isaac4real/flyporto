@@ -3,14 +3,13 @@ import { ModelManager } from '../core/ModelManager.js';
 import { CONFIG } from '../config.js';
 
 /**
- * Entry Screen - Name entry, aircraft selection, and loading progress
+ * Entry Screen - Aircraft selection and loading progress
  * Shows while tiles preload in the background
  */
 export class EntryScreen {
   constructor() {
     this.selectedType = CONFIG.aircraft?.defaultType || 'jet1';
     this.selectedColor = 'red';
-    this.playerName = '';
     this.isReady = false;
     this.onReady = null;  // Callback when user clicks "Take Off!"
 
@@ -51,8 +50,8 @@ export class EntryScreen {
         <p class="demo-hint">Watch the aircraft fly while we load...</p>
 
         <div class="input-group">
-          <label for="player-name">Callsign</label>
-          <input type="text" id="player-name" maxlength="16" placeholder="Enter your name..." autocomplete="off" spellcheck="false">
+          <label>Callsign</label>
+          <div class="callsign-note">Assigned automatically when you join</div>
         </div>
 
         <div class="aircraft-selection">
@@ -90,10 +89,6 @@ export class EntryScreen {
 
     this.setupEventListeners();
 
-    // Focus name input after a short delay
-    setTimeout(() => {
-      document.getElementById('player-name')?.focus();
-    }, 100);
   }
 
   addStyles() {
@@ -214,29 +209,16 @@ export class EntryScreen {
         letter-spacing: 0.5px;
       }
 
-      .input-group input {
+      .callsign-note {
         width: 100%;
-        padding: 14px 16px;
+        padding: 12px 14px;
         border: 2px solid rgba(255, 255, 255, 0.15);
         border-radius: 10px;
         background: rgba(255, 255, 255, 0.05);
-        color: white;
-        font-size: 16px;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 14px;
         font-weight: 500;
-        outline: none;
-        transition: all 0.3s ease;
         box-sizing: border-box;
-      }
-
-      .input-group input:focus {
-        border-color: rgba(168, 237, 234, 0.6);
-        background: rgba(255, 255, 255, 0.1);
-        box-shadow: 0 0 0 4px rgba(168, 237, 234, 0.1);
-      }
-
-      .input-group input::placeholder {
-        color: rgba(255, 255, 255, 0.3);
-        font-weight: 400;
       }
 
       .aircraft-selection {
@@ -606,20 +588,6 @@ export class EntryScreen {
   }
 
   setupEventListeners() {
-    // Name input
-    const nameInput = document.getElementById('player-name');
-    nameInput.addEventListener('input', (e) => {
-      this.playerName = e.target.value.trim();
-      this.checkReady();
-    });
-
-    // Enter key to start game
-    nameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && this.isReady && this.playerName) {
-        this.triggerStart();
-      }
-    });
-
     // Aircraft type selection
     const aircraftOptions = this.overlay.querySelectorAll('.aircraft-option');
     aircraftOptions.forEach(option => {
@@ -640,11 +608,10 @@ export class EntryScreen {
    * Trigger game start if ready
    */
   triggerStart() {
-    if (this.isReady && this.playerName) {
+    if (this.isReady) {
       this.hide();
       if (this.onReady) {
         this.onReady({
-          name: this.playerName,
           planeType: this.selectedType,
           planeColor: this.selectedColor
         });
@@ -688,7 +655,7 @@ export class EntryScreen {
 
     if (!flyButton || !buttonText) return;
 
-    if (this.isReady && this.playerName) {
+    if (this.isReady) {
       flyButton.disabled = false;
       buttonText.textContent = 'Take Off!';
       if (spinner) spinner.style.display = 'none';
@@ -696,10 +663,6 @@ export class EntryScreen {
       flyButton.disabled = true;
       buttonText.textContent = 'Loading terrain...';
       if (spinner) spinner.style.display = 'block';
-    } else {
-      flyButton.disabled = true;
-      buttonText.textContent = 'Enter callsign above';
-      if (spinner) spinner.style.display = 'none';
     }
   }
 

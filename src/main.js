@@ -19,6 +19,7 @@ import { EntryScreen } from './ui/EntryScreen.js';
 import { TilePreloader } from './core/TilePreloader.js';
 import { ModelManager } from './core/ModelManager.js';
 import { CockpitOverlay } from './ui/CockpitOverlay.js';
+import { createBlimpBanner } from './world/BlimpBanner.js';
 
 // Stage 18: Tile streaming performance systems
 import { AdaptiveQuality } from './core/AdaptiveQuality.js';
@@ -287,7 +288,7 @@ preloader.onReady = () => {
 // PHASE 3: Start game when user clicks "Take Off!"
 // ============================================================================
 
-entryScreen.onReady = ({ name, planeType, planeColor }) => {
+entryScreen.onReady = ({ planeType, planeColor }) => {
   // Stop preload loop
   if (preloadAnimationId) {
     cancelAnimationFrame(preloadAnimationId);
@@ -308,17 +309,16 @@ entryScreen.onReady = ({ name, planeType, planeColor }) => {
   preloader.dispose();
 
   // Start the actual game with player settings
-  startGame(name, planeType, planeColor);
+  startGame(planeType, planeColor);
 };
 
 /**
  * Start the game with the given player settings
- * @param {string} playerName - Player's chosen name
  * @param {string} planeType - Player's chosen aircraft type (f16, f22, f18, cessna)
  * @param {string} planeColor - Player's chosen accent color (red, blue, green, etc.)
  */
-function startGame(playerName, planeType, planeColor) {
-  console.log(`[Game] Starting game as "${playerName}" with ${planeType} plane (${planeColor})`);
+function startGame(planeType, planeColor) {
+  console.log(`[Game] Starting game with ${planeType} plane (${planeColor})`);
 
   // Create aircraft at starting position with chosen plane type and color
   const startPosition = new THREE.Vector3(0, CONFIG.startPosition.altitude, 0);
@@ -334,6 +334,27 @@ function startGame(playerName, planeType, planeColor) {
 
   // Initialize camera controller (follow camera)
   const cameraController = new CameraController(camera, aircraft);
+
+  // Spawn promotional blimp banner in front and above the player
+  const blimp = createBlimpBanner({ text: 'www.grw.ai' });
+  scene.add(blimp.group);
+  blimp.group.scale.setScalar(0.55);
+  const blimpForward = new THREE.Vector3(0, 0, -1).applyEuler(aircraft.rotation).normalize();
+  const blimpUp = new THREE.Vector3(0, 1, 0);
+  const blimpRight = new THREE.Vector3().crossVectors(blimpForward, blimpUp).normalize();
+  blimp.group.position.copy(aircraft.position)
+    .add(blimpForward.multiplyScalar(620))
+    .add(blimpUp.multiplyScalar(150))
+    .add(blimpRight.multiplyScalar(80));
+
+  const blimpToPlayer = new THREE.Vector3()
+    .subVectors(aircraft.position, blimp.group.position)
+    .normalize();
+  const blimpFlightDir = new THREE.Vector3().crossVectors(blimpUp, blimpToPlayer).normalize();
+  const blimpBasis = new THREE.Matrix4().makeBasis(blimpToPlayer, blimpUp, blimpFlightDir);
+  blimp.group.setRotationFromMatrix(blimpBasis);
+  const blimpBaseQuaternion = blimp.group.quaternion.clone();
+  const blimpBasePosition = blimp.group.position.clone();
 
   // Setup resize handler
   setupResizeHandler(camera, renderer);
@@ -383,7 +404,7 @@ function startGame(playerName, planeType, planeColor) {
 
   // Initialize network manager with player name and aircraft settings
   const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
-  const networkManager = new NetworkManager(wsUrl, playerName);
+  const networkManager = new NetworkManager(wsUrl);
   networkManager.setPlaneType(planeType);
   networkManager.setPlaneColor(planeColor);
 
@@ -416,6 +437,18 @@ function startGame(playerName, planeType, planeColor) {
       hud.showNotification(`${player.playerName} left`);
     }
     playerSync.removePlayer(id);
+  };
+
+  networkManager.onNameUpdate = (name) => {
+    hud.showNotification(`Callsign assigned: ${name}`);
+  };
+
+  networkManager.onError = (msg) => {
+    if (msg?.code === 'join_rate_limited') {
+      hud.showNotification('Join rate limited. Please wait and try again.');
+    } else if (msg?.message) {
+      hud.showNotification(msg.message);
+    }
   };
 
   networkManager.onPingUpdate = (ping) => {
@@ -510,6 +543,25 @@ function startGame(playerName, planeType, planeColor) {
 
     // 7. Update camera to follow local aircraft
     cameraController.update(deltaTime);
+
+    // Keep the blimp banner readable at spawn
+    if (blimp) {
+      const nowMs = performance.now();
+      const floatOffset = Math.sin(nowMs * 0.00035) * 2.0;
+      const forwardOffset = Math.sin(nowMs * 0.00005) * 90;
+      const lateralOffset = Math.cos(nowMs * 0.00005) * 26;
+      const roll = Math.sin(nowMs * 0.00022) * 0.035;
+      const yaw = Math.sin(nowMs * 0.00014) * 0.03;
+
+      blimp.group.position.copy(blimpBasePosition)
+        .addScaledVector(blimpFlightDir, forwardOffset)
+        .addScaledVector(blimpToPlayer, lateralOffset);
+      blimp.group.position.y = blimpBasePosition.y + floatOffset;
+
+      blimp.group.quaternion.copy(blimpBaseQuaternion);
+      blimp.group.rotateZ(roll);
+      blimp.group.rotateY(yaw);
+    }
 
     // 8. Update HUD
     hud.update(aircraft.getSpeed(), aircraft.getAltitude());
