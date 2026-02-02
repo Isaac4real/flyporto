@@ -69,7 +69,6 @@ const renderer = createRenderer();
 
 // Add renderer to DOM
 document.getElementById('container').appendChild(renderer.domElement);
-createRateLimitBanner();
 
 // Setup lighting
 setupLighting(scene);
